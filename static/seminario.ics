@@ -1,0 +1,19 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Seminario UMG//Pase VIP//ES
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:seminario-sistemas-2026@umg-chiquimulilla
+DTSTAMP:20261007T000000Z
+DTSTART:20261025T000000Z
+DTEND:20261025T040000Z
+SUMMARY:Seminario de Ingeniería en Sistemas
+LOCATION:Hostal Las Marías\, Taxisco\, Santa Rosa\, Guatemala
+DESCRIPTION:Inteligencia Artificial: el código que aprende\nOrganiza: Décimo Ciclo de Ingeniería en Sistemas
+BEGIN:VALARM
+TRIGGER:-PT2H
+ACTION:DISPLAY
+DESCRIPTION:El seminario empieza en 2 horas
+END:VALARM
+END:VEVENT
+END:VCALENDAR

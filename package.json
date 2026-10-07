@@ -1,0 +1,14 @@
+{
+  "name": "invitacion-seminario",
+  "version": "1.0.0",
+  "description": "Invitación con desbloqueo por visión artificial",
+  "private": true,
+  "scripts": {
+    "dev": "tailwindcss -i ./src/input.css -o ./static/output.css --watch",
+    "build": "tailwindcss -i ./src/input.css -o ./static/output.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}
