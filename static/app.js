@@ -402,3 +402,263 @@ $("#btn-again").addEventListener("click", () => location.reload());
 
 /* Dibuja los iconos de Lucide al cargar la página */
 lucide.createIcons();
+
+
+/* ======================================================
+   GUARDAR INVITACIÓN COMO IMAGEN (PNG)
+   ====================================================== */
+const LOGO = { a: "UMG", b: "SIS", sub: "CHIQUIMULILLA" };
+const COLORES = {
+  ink: "#05060f", haze: "#e6f1ff", dim: "#7d8bb0", cyan: "#00f0ff",
+  violet: "#8b5cf6", pink: "#ff2bd6", green: "#3dff9a", gold: "#ffd76a",
+};
+let imagenPase = null;
+
+function partirLineas(ctx, texto, maxW) {
+  const palabras = String(texto || "").split(" ");
+  const lineas = [];
+  let actual = "";
+  for (const p of palabras) {
+    const prueba = actual ? `${actual} ${p}` : p;
+    if (ctx.measureText(prueba).width > maxW && actual) { lineas.push(actual); actual = p; }
+    else actual = prueba;
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
+const capitalizar = (s) => s.replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());
+
+async function crearImagenPase() {
+  await document.fonts.ready;
+  await Promise.all([
+    '900 56px "Orbitron"', '700 48px "Orbitron"', '600 22px "JetBrains Mono"',
+    '400 24px "JetBrains Mono"', '400 30px "Inter"', '600 32px "Inter"',
+  ].map((f) => document.fonts.load(f)));
+
+  const C = COLORES;
+  const W = 1080, M = 70;
+  const CX = M, CW = W - M * 2, CY = M;
+  const X = CX + 60, IW = CW - 120;
+
+  // Dibuja (o solo mide) el contenido del pase. Devuelve dónde termina la tarjeta.
+  const contenido = (ctx, dibujar) => {
+    const txt = (t, x, y, font, color, ls = "0px", align = "left") => {
+      ctx.font = font; ctx.fillStyle = color; ctx.letterSpacing = ls; ctx.textAlign = align;
+      if (dibujar) ctx.fillText(t, x, y);
+      return ctx.measureText(t).width;
+    };
+    const bloque = (texto, font, color, maxW, lh, ls = "0px") => {
+      ctx.font = font; ctx.letterSpacing = ls;
+      const lineas = partirLineas(ctx, texto, maxW);
+      lineas.forEach((l, i) => txt(l, X, y + i * lh, font, color, ls));
+      return Math.max(0, lineas.length - 1) * lh;
+    };
+
+    let y = CY + 110;
+
+    // Logo
+    let lx = X;
+    lx += txt(LOGO.a, lx, y, '900 44px "Orbitron"', C.haze, "4px");
+    lx += txt("//", lx, y, '900 44px "Orbitron"', C.cyan, "4px");
+    txt(LOGO.b, lx, y, '900 44px "Orbitron"', C.haze, "4px");
+    txt(LOGO.sub, X, y + 40, '600 20px "JetBrains Mono"', C.dim, "6px");
+
+    // Etiqueta VIP
+    if (dibujar) {
+      const bw = 160, bh = 60, bx = X + IW - bw, by = y - 46;
+      const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+      g.addColorStop(0, C.gold); g.addColorStop(1, "#ff9f43");
+      ctx.save();
+      ctx.shadowColor = "rgba(255,200,80,.5)"; ctx.shadowBlur = 30;
+      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.fill();
+      ctx.restore();
+      txt("VIP", bx + bw / 2 + 4, by + 41, '900 26px "Orbitron"', "#1a1000", "8px", "center");
+    }
+
+    // Encabezado
+    y += 130;
+    txt("● INVITACIÓN DESENCRIPTADA", X, y, '600 22px "JetBrains Mono"', C.green, "6px");
+    y += 80;
+    y += bloque(CONFIG.evento, '900 56px "Orbitron"', C.haze, IW, 68);
+    if (CONFIG.tema) {
+      y += 56;
+      y += bloque(CONFIG.tema, '400 30px "Inter"', C.dim, IW, 42);
+    }
+
+    // Invitado
+    y += 80;
+    txt("INVITADO", X, y, '600 20px "JetBrains Mono"', C.dim, "5px");
+    y += 60;
+    const gradNombre = ctx.createLinearGradient(X, 0, X + IW * 0.8, 0);
+    gradNombre.addColorStop(0, "#ffffff"); gradNombre.addColorStop(1, C.cyan);
+    y += bloque(guestName.toUpperCase(), '700 48px "Orbitron"', gradNombre, IW, 58, "2px");
+
+    // Datos en dos columnas
+    const colW = IW / 2 - 20;
+    const celda = (label, valor, cx) => {
+      txt(label, cx, y, '600 20px "JetBrains Mono"', C.dim, "5px");
+      ctx.font = '600 32px "Inter"'; ctx.letterSpacing = "0px";
+      const lineas = partirLineas(ctx, valor, colW);
+      lineas.forEach((l, i) => txt(l, cx, y + 48 + i * 42, '600 32px "Inter"', C.haze));
+      return 48 + (lineas.length - 1) * 42;
+    };
+    const fila = (a, b) => {
+      const h = Math.max(celda(a[0], a[1], X), celda(b[0], b[1], X + IW / 2 + 20));
+      y += h;
+    };
+    y += 90;
+    fila(["FECHA", capitalizar($("#p-date").textContent)], ["HORARIO", $("#p-time").textContent]);
+    y += 80;
+    fila(["LUGAR", $("#p-place").textContent], ["ORGANIZA", $("#p-org").textContent]);
+
+    // Línea perforada
+    y += 70;
+    if (dibujar) {
+      ctx.save();
+      ctx.setLineDash([14, 12]); ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(CX + 34, y); ctx.lineTo(CX + CW - 34, y); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = C.ink;
+      for (const nx of [CX, CX + CW]) { ctx.beginPath(); ctx.arc(nx, y, 26, 0, Math.PI * 2); ctx.fill(); }
+    }
+
+    // Código de barras + ID
+    y += 70;
+    const barTop = y;
+    if (dibujar) {
+      let bx = X;
+      const limite = X + IW - 330;
+      ctx.fillStyle = C.haze;
+      for (const b of $("#barcode").children) {
+        const bw = (parseFloat(b.style.width) || 2) * 3;
+        if (bx + bw > limite) break;
+        ctx.globalAlpha = parseFloat(b.style.opacity || 1);
+        ctx.fillRect(bx, barTop, bw, 110);
+        bx += bw + 6;
+      }
+      ctx.globalAlpha = 1;
+    }
+    txt("ID DE ACCESO", X + IW, barTop + 40, '600 20px "JetBrains Mono"', C.dim, "5px", "right");
+    txt(passId, X + IW, barTop + 92, '600 36px "JetBrains Mono"', C.cyan, "0px", "right");
+    y = barTop + 110;
+
+    // Autenticación por IA
+    y += 70;
+    if (dibujar) {
+      ctx.save();
+      ctx.fillStyle = C.green; ctx.shadowColor = C.green; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.arc(X + 8, y - 8, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    txt($("#p-ai").textContent.trim(), X + 32, y, '400 24px "JetBrains Mono"', C.dim);
+
+    return y + 70;
+  };
+
+  // 1) Medir para saber la altura total
+  const medidor = document.createElement("canvas").getContext("2d");
+  const finTarjeta = contenido(medidor, false);
+  const CH = finTarjeta - CY;
+  const H = finTarjeta + 130;
+
+  // 2) Dibujar
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+
+  // Fondo
+  const bg = ctx.createRadialGradient(W / 2, -200, 50, W / 2, -200, H * 1.1);
+  bg.addColorStop(0, "#1a1046"); bg.addColorStop(0.6, C.ink); bg.addColorStop(1, C.ink);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(0,240,255,.05)"; ctx.lineWidth = 1;
+  for (let gx = 0; gx <= W; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+  for (let gy = 0; gy <= H; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+  ctx.fillStyle = "rgba(0,240,255,.6)";
+  for (let i = 0; i < 60; i++) ctx.fillRect(Math.random() * W, Math.random() * H, 3, 3);
+
+  // Tarjeta con brillo
+  const fondoTarjeta = ctx.createLinearGradient(CX, CY, CX + CW * 0.4, CY + CH);
+  fondoTarjeta.addColorStop(0, "rgba(28,22,66,.97)");
+  fondoTarjeta.addColorStop(1, "rgba(6,8,22,.98)");
+  ctx.save();
+  ctx.shadowColor = "rgba(139,92,246,.55)"; ctx.shadowBlur = 90; ctx.shadowOffsetY = 30;
+  ctx.fillStyle = fondoTarjeta;
+  ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.fill();
+  ctx.restore();
+
+  // Reflejo holográfico
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.clip();
+  const holo = ctx.createLinearGradient(CX, CY, CX + CW, CY + CH);
+  holo.addColorStop(0.2, "rgba(0,240,255,0)");
+  holo.addColorStop(0.35, "rgba(0,240,255,.09)");
+  holo.addColorStop(0.5, "rgba(255,43,214,.09)");
+  holo.addColorStop(0.65, "rgba(139,92,246,.09)");
+  holo.addColorStop(0.8, "rgba(139,92,246,0)");
+  ctx.fillStyle = holo; ctx.fillRect(CX, CY, CW, CH);
+  ctx.restore();
+
+  // Borde neón
+  const borde = ctx.createLinearGradient(CX, CY, CX + CW, CY + CH);
+  borde.addColorStop(0, C.cyan); borde.addColorStop(0.35, C.violet);
+  borde.addColorStop(0.65, C.pink); borde.addColorStop(0.85, C.gold); borde.addColorStop(1, C.cyan);
+  ctx.strokeStyle = borde; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.stroke();
+
+  contenido(ctx, true);
+
+  // Pie con el link
+  ctx.font = '600 22px "JetBrains Mono"'; ctx.letterSpacing = "4px";
+  ctx.fillStyle = C.dim; ctx.textAlign = "center";
+  ctx.fillText(location.host, W / 2, H - 55);
+
+  return new Promise((r) => cv.toBlob(r, "image/png"));
+}
+
+// La imagen se prepara en cuanto aparece el pase, así el botón responde al instante
+new MutationObserver(() => {
+  if (!passId) return;
+  setTimeout(async () => {
+    try { imagenPase = await crearImagenPase(); } catch (e) { console.error(e); }
+  }, 400);
+}).observe($("#p-id"), { childList: true });
+
+function descargarArchivo(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+$("#btn-save").addEventListener("click", async () => {
+  const btn = $("#btn-save");
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  try {
+    if (!imagenPase) {
+      btn.textContent = "Generando…";
+      imagenPase = await crearImagenPase();
+    }
+    const nombre = `pase-vip-${passId}.png`;
+    const archivo = new File([imagenPase], nombre, { type: "image/png" });
+
+    if (navigator.canShare?.({ files: [archivo] })) {
+      try {
+        await navigator.share({ files: [archivo], title: "Mi pase VIP" });
+      } catch (e) {
+        if (e.name === "AbortError") return;   // el usuario cerró el menú
+        descargarArchivo(imagenPase, nombre);  // si compartir falla, descarga
+      }
+    } else {
+      descargarArchivo(imagenPase, nombre);
+    }
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo generar la imagen. Puedes tomar una captura de pantalla 📸");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+});

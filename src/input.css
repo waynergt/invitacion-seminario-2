@@ -34,7 +34,12 @@
 
 /* ============ BASE ============ */
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; }
+    html {
+    -webkit-tap-highlight-color: transparent;
+    background-color: var(--color-ink);
+    color-scheme: dark;
+    overscroll-behavior-y: none;
+  }
   body { background: radial-gradient(ellipse at 50% -10%, #1a1046 0%, var(--color-ink) 60%) fixed; }
 
   @media (prefers-reduced-motion: reduce) {
