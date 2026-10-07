@@ -1,7 +1,6 @@
 /* ============ CONFIGURA TU EVENTO AQUÍ ============ */
 const CONFIG = {
   evento: "Seminario de Ingeniería en Sistemas",
-  tema: "Inteligencia Artificial: el código que aprende", // o "" si no quieres subtítulo
   fecha: "2026-10-24",       // AAAA-MM-DD
   hora: "18:00",             // formato 24 h
   horaFin: "22:00",
