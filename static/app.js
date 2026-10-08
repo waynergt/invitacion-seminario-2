@@ -18,10 +18,13 @@ document.querySelectorAll("[data-cfg]").forEach((el) => (el.textContent = CONFIG
 /* ---------- Red neuronal (ONNX Runtime Web) ---------- */
 // Si cambias el modelo, cámbiale también el nombre al archivo (los navegadores lo guardan en caché 1 año)
 const MODELO = "model/mobilenet_v3_large.int8.onnx";
+// Clases de ImageNet que cuentan como cada objeto (se suman sus probabilidades)
 const OBJETIVOS = {
-  cafe: ["coffee mug", "cup", "espresso", "coffeepot"],
-  teclado: ["computer keyboard", "typewriter keyboard", "space bar", "laptop", "notebook"],
+  lapicero: ["ballpoint", "fountain pen", "quill"],
+  zapato: ["running shoe", "Loafer", "clog", "cowboy boot", "sandal", "shoe shop"],
 };
+const NOMBRES = { lapicero: "Lapicero", zapato: "Zapato" };
+const ICONO_OBJETIVO = { lapicero: "pen-line", zapato: "footprints" };
 const SIZE = 224, MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];
 let session = null, labels = [];
 const indices = {};
@@ -66,7 +69,7 @@ async function classify() {
 
   const scores = {};
   for (const k in indices) scores[k] = indices[k].reduce((a, i) => a + probs[i], 0);
-  const objetivo = scores.cafe >= scores.teclado ? "cafe" : "teclado";
+  const objetivo = Object.keys(scores).reduce((a, b) => (scores[b] > scores[a] ? b : a));
   let topI = 0;
   for (let i = 1; i < probs.length; i++) if (probs[i] > probs[topI]) topI = i;
 
@@ -238,13 +241,13 @@ async function loop() {
 function handle(d) {
   if (unlocked) return;
   const pc = (v) => Math.round(v * 100);
-  for (const k of ["cafe", "teclado"]) {
+  for (const k of Object.keys(OBJETIVOS)) {
     $(`#b-${k}`).style.width = `${Math.min(100, (d.scores[k] / d.umbral) * 100)}%`;
     $(`#v-${k}`).textContent = `${pc(d.scores[k])}%`;
   }
   const top = d.top[0];
   $("#vp-label").textContent = d.unlocked
-    ? `OBJETIVO: ${d.objetivo === "cafe" ? "CAFÉ" : "TECLADO"} · ${pc(d.confianza)}%`
+    ? `OBJETIVO: ${NOMBRES[d.objetivo].toUpperCase()} · ${pc(d.confianza)}%`
     : `ANALIZANDO: ${top.label.toUpperCase()}`;
   log(`${top.label} · ${pc(top.score)}%`, d.unlocked ? "ok" : "");
   $("#viewport").classList.toggle("lock", d.unlocked);
@@ -301,10 +304,10 @@ function renderPass(kind, conf) {
   $("#p-org").textContent = CONFIG.organiza;
   $("#p-id").textContent = passId;
 
-  const icono = kind === "manual" ? "key-round" : kind === "cafe" ? "coffee" : "keyboard";
+  const icono = kind === "manual" ? "key-round" : ICONO_OBJETIVO[kind];
   const texto = kind === "manual"
     ? "Acceso alternativo autorizado"
-    : `Autenticado por IA · ${kind === "cafe" ? "Café" : "Teclado"} · ${Math.round(conf * 100)}%`;
+    : `Autenticado por IA · ${NOMBRES[kind]} · ${Math.round(conf * 100)}%`;
   const ai = $("#p-ai");
   ai.innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="${icono}" class="size-3.5"></i><span></span></span>`;
   ai.querySelector("span span").textContent = texto;
@@ -677,10 +680,23 @@ async function crearImagenPase() {
 
   contenido(ctx, true);
 
-  // Pie con el link
-  ctx.font = '600 22px "JetBrains Mono"'; ctx.letterSpacing = "4px";
-  ctx.fillStyle = C.dim; ctx.textAlign = "center";
-  ctx.fillText(location.host, W / 2, H - 55);
+  // Pie: SEMINARIO 2026 · INGENIERÍA EN SISTEMAS, entre dos líneas rojo → dorado
+  const pie = (CONFIG.pie || CONFIG.evento).toUpperCase();
+  const yPie = H - 52;
+  ctx.font = '700 22px "Orbitron"'; ctx.letterSpacing = "4px"; ctx.textAlign = "center";
+  const anchoPie = ctx.measureText(pie).width;
+  const gradPie = ctx.createLinearGradient(W / 2 - anchoPie / 2, 0, W / 2 + anchoPie / 2, 0);
+  gradPie.addColorStop(0, C.oroLuz); gradPie.addColorStop(0.5, "#ffffff"); gradPie.addColorStop(1, C.oroLuz);
+  ctx.fillStyle = gradPie;
+  ctx.fillText(pie, W / 2, yPie);
+  const largoLinea = Math.max(0, Math.min(90, (W - anchoPie) / 2 - 50));
+  for (const lado of [-1, 1]) {
+    const x0 = W / 2 + lado * (anchoPie / 2 + 22), x1 = x0 + lado * largoLinea;
+    const gl = ctx.createLinearGradient(x0, 0, x1, 0);
+    gl.addColorStop(0, C.oroLuz); gl.addColorStop(1, "rgba(203,51,50,0)");
+    ctx.strokeStyle = gl; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, yPie - 9); ctx.lineTo(x1, yPie - 9); ctx.stroke();
+  }
 
   return new Promise((r) => cv.toBlob(r, "image/png"));
 }

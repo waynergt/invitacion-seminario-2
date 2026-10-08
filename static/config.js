@@ -20,6 +20,7 @@ window.CONFIG = {
   organiza: "Décimo Ciclo de Ingeniería en Sistemas",
   universidad: "Universidad Mariano Gálvez",
   sede: "Chiquimulilla",
+  pie: "SEMINARIO 2026 · INGENIERÍA EN SISTEMAS", // texto al pie de la imagen del pase
 
   // Dirección pública del sitio (para la vista previa en WhatsApp/Facebook)
   sitio: "https://invitacion-seminario-2.vercel.app",

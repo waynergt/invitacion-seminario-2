@@ -1,7 +1,7 @@
 # Invitación · Seminario de Ingeniería en Sistemas (UMG)
 
 Invitación web con desbloqueo por visión artificial. El invitado escribe su nombre,
-le muestra una **taza de café** o un **teclado** a la cámara y una red neuronal
+le muestra un **lapicero** o un **zapato** a la cámara y una red neuronal
 (MobileNetV3) que corre **en su propio teléfono** desbloquea su pase VIP.
 
 Todo es estático: no hay servidor ni costos. Vercel solo sirve los archivos.
