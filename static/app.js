@@ -20,11 +20,11 @@ document.querySelectorAll("[data-cfg]").forEach((el) => (el.textContent = CONFIG
 const MODELO = "model/mobilenet_v3_large.int8.onnx";
 // Clases de ImageNet que cuentan como cada objeto (se suman sus probabilidades)
 const OBJETIVOS = {
-  lapicero: ["ballpoint", "fountain pen", "quill"],
+  billetera: ["wallet", "purse"],
   zapato: ["running shoe", "Loafer", "clog", "cowboy boot", "sandal", "shoe shop"],
 };
-const NOMBRES = { lapicero: "Lapicero", zapato: "Zapato" };
-const ICONO_OBJETIVO = { lapicero: "pen-line", zapato: "footprints" };
+const NOMBRES = { billetera: "Billetera", zapato: "Zapato" };
+const ICONO_OBJETIVO = { billetera: "wallet", zapato: "footprints" };
 const SIZE = 224, MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];
 let session = null, labels = [];
 const indices = {};
