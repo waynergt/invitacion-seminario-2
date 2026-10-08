@@ -26,7 +26,7 @@ window.CONFIG = {
   sitio: "https://invitacion-seminario-2.vercel.app",
 
   // Red neuronal
-  umbral: 0.35,              // confianza mínima para desbloquear (0 a 1)
+  umbral: 0.20,              // confianza mínima para desbloquear (0 a 1)
   intervalo: 400,            // ms entre análisis
   confirmaciones: 2,         // detecciones seguidas para desbloquear
   tiempoAlternativo: 25000,  // ms antes de mostrar el acceso alternativo
