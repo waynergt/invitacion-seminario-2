@@ -58,24 +58,38 @@
           data-text="ACCESO RESTRINGIDO">ACCESO RESTRINGIDO</h1>
 
       <p class="text-[15px] leading-relaxed text-dim">
-        Has recibido una invitación cifrada. Solo una red neuronal puede verificar tu identidad y desbloquearla.
+        Has recibido una invitación cifrada a tu nombre. Solo una red neuronal puede verificar tu identidad y desbloquearla.
       </p>
 
       <div id="cipher" aria-hidden="true" class="h-[82px] overflow-hidden rounded-xl border border-dashed border-line bg-black/25 p-3.5 font-mono text-xs leading-normal break-all text-azul-luz/55 [text-shadow:0_0_8px_rgb(79_176_232/.4)]"></div>
 
-      <label class="flex flex-col gap-2">
-        <span class="flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[.2em] text-dim">
-          <i data-lucide="fingerprint" class="size-3.5"></i>IDENTIFÍCATE
+      <!-- Destinatario: el nombre viene cifrado en el enlace personal y se revela tras el escaneo -->
+      <div id="destinatario" class="rounded-xl border border-line bg-glass px-4 py-3.5 backdrop-blur-md">
+        <span class="flex items-center justify-between gap-2 font-mono text-[11px] font-semibold tracking-[.2em] text-dim">
+          <span class="flex items-center gap-1.5"><i data-lucide="fingerprint" class="size-3.5"></i>DESTINATARIO</span>
+          <span id="dest-estado" class="text-[10px] tracking-[.15em] text-dim/70">VERIFICANDO…</span>
         </span>
-        <input id="guest" maxlength="32" placeholder="Escribe tu nombre" autocomplete="name" enterkeyhint="go"
-          class="rounded-xl border border-line bg-glass px-4 py-[15px] text-base text-haze outline-none backdrop-blur-md transition placeholder:text-dim/70 focus:border-azul-luz focus:shadow-[0_0_0_4px_rgb(79_176_232/.14),0_0_24px_rgb(79_176_232/.25)]" />
-      </label>
+        <div id="dest-nombre" aria-label="Nombre cifrado" class="mt-2 min-h-[1.6em] font-display text-[19px] leading-snug font-bold tracking-[.12em] break-words text-azul-luz/80 [text-shadow:0_0_10px_rgb(79_176_232/.45)]"></div>
+        <div class="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] tracking-[.12em] text-dim/80">
+          <i data-lucide="lock" class="size-3"></i>Identidad cifrada · AES-256-GCM
+        </div>
+      </div>
 
-      <button id="btn-start" class="btn-neon inline-flex items-center justify-center gap-2.5">
-        <i data-lucide="scan-line" class="size-4"></i>Iniciar escaneo neuronal
+      <!-- Enlace sin código o con un código que no existe -->
+      <div id="invalida" class="hidden flex-col gap-2 rounded-2xl border border-rojo-luz/40 bg-rojo/10 px-4 py-4">
+        <div class="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[.2em] text-rojo-luz">
+          <i data-lucide="shield-alert" class="size-4"></i>ACCESO DENEGADO
+        </div>
+        <p class="text-sm leading-relaxed text-haze">
+          Este enlace no corresponde a ninguna invitación. Abre el <b>enlace personal</b> que te enviaron por mensaje, completo y sin modificar.
+        </p>
+      </div>
+
+      <button id="btn-start" disabled class="btn-neon inline-flex items-center justify-center gap-2.5">
+        <i data-lucide="scan-line" class="size-4"></i><span id="btn-start-txt">Verificando invitación…</span>
       </button>
 
-      <p class="flex items-start justify-center gap-1.5 text-center text-xs leading-normal text-dim">
+      <p id="aviso-camara" class="flex items-start justify-center gap-1.5 text-center text-xs leading-normal text-dim">
         <i data-lucide="lock" class="mt-px size-3.5 shrink-0"></i>
         Se pedirá acceso a tu cámara. Las imágenes se analizan en tu dispositivo y no se envían a ningún lado.
       </p>

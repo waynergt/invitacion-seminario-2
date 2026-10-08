@@ -166,18 +166,73 @@ function mostrarAccesoAlternativo() {
   $("#btn-alt").classList.replace("hidden", "flex");
 }
 
+/* ---------- Invitación personal ----------
+   Cada invitado recibe un enlace con su código:  https://…/#K7Q29XMBA4TR
+   static/invitados.json guarda los nombres cifrados con AES-256-GCM. Del código salen
+   (1) el id para encontrar su entrada y (2) la llave para descifrar su nombre.
+   Sin un código válido no hay nombre que mostrar: no se puede inventar uno.
+   La lista se genera con:  npm run invitados  (ver scripts/invitados.mjs)        */
+const utf8 = (s) => new TextEncoder().encode(s);
+const sha256 = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", utf8(s)));
+const desdeB64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+async function verificarInvitacion() {
+  const codigo = decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^0-9A-Z]/g, "");
+  if (codigo.length < 8) throw new Error("El enlace no trae código de invitación");
+  if (!crypto.subtle) throw new Error("Se requiere HTTPS para descifrar la invitación");
+
+  const id = [...(await sha256(`umg-invitado-id:${codigo}`))]
+    .map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+  const lista = await (await fetch("invitados.json", { cache: "no-cache" })).json();
+  const entrada = lista.e?.[id];
+  if (!entrada) throw new Error("Código no registrado");
+
+  const llave = await crypto.subtle.importKey("raw", await sha256(`umg-invitado-key:${codigo}`), "AES-GCM", false, ["decrypt"]);
+  const plano = await crypto.subtle.decrypt({ name: "AES-GCM", iv: desdeB64url(entrada.iv) }, llave, desdeB64url(entrada.ct));
+  return { id, nombre: JSON.parse(new TextDecoder().decode(plano)).n };
+}
+
 /* ---------- Etapa 1: Intro ---------- */
-const cipherTimer = setInterval(() => ($("#cipher").textContent = rnd(140)), reduceMotion ? 1500 : 80);
-let guestName = "Invitado Especial";
+let guestName = "", invitadoId = "";
+const destNombre = $("#dest-nombre");
+// El nombre se muestra "cifrado": mismos espacios y largo, pero con símbolos que cambian
+const cifrarVisual = (t) => [...t].map((ch) => (ch === " " ? " " : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
+const cipherTimer = setInterval(() => {
+  $("#cipher").textContent = rnd(140);
+  destNombre.textContent = cifrarVisual(guestName || "▓▓▓▓▓▓ ▓▓▓▓▓▓▓");
+}, reduceMotion ? 1500 : 90);
+
+verificarInvitacion().then(
+  ({ id, nombre }) => {
+    guestName = nombre;
+    invitadoId = id;
+    const estado = $("#dest-estado");
+    estado.textContent = "CLAVE VÁLIDA ✓";
+    estado.classList.replace("text-dim/70", "text-oro-luz");
+    $("#btn-start-txt").textContent = "Iniciar escaneo neuronal";
+    $("#btn-start").disabled = false;
+  },
+  (e) => {
+    console.warn("Invitación no válida:", e.message);
+    clearInterval(cipherTimer);
+    $("#destinatario").classList.add("hidden");
+    $("#invalida").classList.replace("hidden", "flex");
+    $("#btn-start").classList.replace("inline-flex", "hidden");
+    $("#aviso-camara").classList.add("hidden");
+    $("#cipher").textContent = "ACCESO DENEGADO · ".repeat(12);
+    $("#cipher").classList.replace("text-azul-luz/55", "text-rojo-luz/50");
+  },
+);
 
 async function iniciar() {
-  guestName = $("#guest").value.trim() || "Invitado Especial";
+  if (!guestName) return;
   clearInterval(cipherTimer);
   show("s-scan");
   await startCamera();
 }
 $("#btn-start").addEventListener("click", iniciar, { once: true });
-$("#guest").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-start").click(); });
+// Si pegan otro enlace en la misma pestaña, se vuelve a verificar desde cero
+addEventListener("hashchange", () => location.reload());
 
 /* ---------- Etapa 2: Escáner ---------- */
 const video = $("#video");
@@ -185,6 +240,7 @@ let stream = null, timer = null, altTimer = null;
 let busy = false, hits = 0, fails = 0, unlocked = false;
 
 async function startCamera() {
+  log("Clave de invitación verificada ✓", "ok");
   log("Inicializando sensor óptico…");
   altTimer = setTimeout(mostrarAccesoAlternativo, CONFIG.tiempoAlternativo);
 
@@ -289,9 +345,9 @@ const capitalizar = (s) => s.replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());
 
 let passId = "";
 function renderPass(kind, conf) {
-  const hex = [...crypto.getRandomValues(new Uint8Array(4))]
-    .map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-  passId = `VIP-${hex.slice(0, 4)}-${hex.slice(4)}`;
+  // El ID del pase sale del código del invitado: siempre es el mismo para la misma persona
+  const hex = invitadoId.toUpperCase();
+  passId = `VIP-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
 
   $("#p-date").textContent = capitalizar(INICIO.toLocaleDateString("es-GT", {
     weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: CONFIG.zonaHoraria,

@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
-    "preview": "npx --yes serve dist"
+    "preview": "npx --yes serve dist",
+    "invitados": "node scripts/invitados.mjs"
   },
   "engines": {
     "node": ">=18"

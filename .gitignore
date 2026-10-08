@@ -6,3 +6,7 @@ __pycache__/
 .vercel
 dist/
 *.tmp.onnx*
+
+# Lista de invitados con nombres y códigos en claro: NUNCA subirla (el repo es público)
+invitados/*
+!invitados/invitados.ejemplo.csv
