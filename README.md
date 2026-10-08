@@ -6,6 +6,17 @@ red neuronal (MobileNetV3) que corre **en su propio teléfono** desbloquea su pa
 
 Todo es estático: no hay servidor ni costos. Vercel solo sirve los archivos.
 
+![CI](https://github.com/waynergt/invitacion-seminario-2/actions/workflows/ci.yml/badge.svg)
+
+## Calidad y seguridad
+
+- **55 pruebas automáticas** (`npm test`): criptografía, CSV, calendario, configuración y revisiones de seguridad.
+  Vercel las corre antes de cada publicación y GitHub Actions en cada push: si una falla, no se publica.
+- **Prueba de mutación 8/8**: se metieron errores a propósito y las pruebas los detectaron todos.
+- **Seguridad**: lista de invitados cifrada con AES-256-GCM, CSP estricta, SRI, cabeceras HTTP de seguridad,
+  sin `innerHTML`/`eval`, protección contra inyección de fórmulas en CSV.
+- Detalles: [SECURITY.md](SECURITY.md) (modelo de amenazas) y [docs/PLAN-DE-PRUEBAS.md](docs/PLAN-DE-PRUEBAS.md).
+
 ## Cambiar los datos del evento
 
 Todo está en **`static/config.js`**: nombre, fecha, horario, lugar, coordenadas, organizador
@@ -35,6 +46,7 @@ npm run dev        # genera dist/ y lo regenera cada vez que guardas
 npm run preview    # (en otra terminal) abre dist/ en http://localhost:3000
 npm run build      # lo que corre Vercel al publicar
 npm run invitados  # genera los enlaces personales y la lista cifrada
+npm test           # corre las pruebas automáticas
 ```
 
 > La cámara solo funciona en `localhost` o con HTTPS.
@@ -45,6 +57,7 @@ npm run invitados  # genera los enlaces personales y la lista cifrada
 static/                 ← código del sitio (lo que editas)
   config.js             ← DATOS DEL EVENTO
   invitados.json        ← lista de invitados CIFRADA (la genera npm run invitados)
+  invitacion-core.js    ← criptografía de las invitaciones (la usan el navegador, el script y las pruebas)
   index.html            ← estructura de las 3 pantallas
   app.js                ← cámara, red neuronal, pase, calendario, mapas, imagen PNG
   icons.js              ← los íconos de Lucide que se usan (local, ~6 KB)
@@ -53,7 +66,12 @@ static/                 ← código del sitio (lo que editas)
 src/input.css           ← tema (colores UMG) y efectos, con Tailwind v4
 scripts/invitados.mjs   ← genera los códigos, la lista cifrada y los enlaces
 invitados/              ← TU lista en claro + enlaces (privada, no se sube a git)
-scripts/build.mjs       ← arma dist/: copia static/, genera seminario.ics y las etiquetas para compartir, compila el CSS
+scripts/build.mjs       ← arma dist/: valida config.js, copia static/, genera seminario.ics y las etiquetas para compartir, compila el CSS
+scripts/lib/            ← módulos reutilizables: CSV, calendario .ics, validación de la configuración
+tests/                  ← pruebas automáticas (node:test, sin dependencias extra)
+docs/PLAN-DE-PRUEBAS.md ← plan de pruebas, casos manuales y prueba de mutación
+SECURITY.md             ← modelo de amenazas y controles de seguridad
+.github/workflows/      ← integración continua (GitHub Actions)
 tools/                  ← solo para regenerar el modelo (Python, opcional)
 dist/                   ← generado, no se sube a git
 ```

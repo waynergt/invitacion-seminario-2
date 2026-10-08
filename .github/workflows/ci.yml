@@ -1,0 +1,35 @@
+# Integración continua: en cada push y pull request corre las pruebas y el build.
+# Si algo falla, GitHub lo marca en rojo antes de que llegue a producción.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read # mínimo privilegio: el workflow solo lee el repositorio
+
+jobs:
+  pruebas:
+    name: Pruebas y build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Instalar dependencias exactas (package-lock)
+        run: npm ci
+      - name: Auditoría de dependencias
+        run: npm audit --audit-level=high
+      - name: Revisión de sintaxis
+        run: for f in static/*.js scripts/*.mjs scripts/lib/*.mjs; do node --check "$f"; done
+      - name: Pruebas automáticas
+        run: npm test
+      - name: Build
+        run: npm run build

@@ -78,11 +78,10 @@
       <!-- Enlace sin código o con un código que no existe -->
       <div id="invalida" class="hidden flex-col gap-2 rounded-2xl border border-rojo-luz/40 bg-rojo/10 px-4 py-4">
         <div class="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[.2em] text-rojo-luz">
-          <i data-lucide="shield-alert" class="size-4"></i>ACCESO DENEGADO
+          <i data-lucide="shield-alert" class="size-4"></i><span id="inv-titulo">ACCESO DENEGADO</span>
         </div>
-        <p class="text-sm leading-relaxed text-haze">
-          Este enlace no corresponde a ninguna invitación. Abre el <b>enlace personal</b> que te enviaron por mensaje, completo y sin modificar.
-        </p>
+        <p id="inv-texto" class="text-sm leading-relaxed text-haze"></p>
+        <button id="btn-reintentar" class="btn-ghost mt-1 hidden">Reintentar</button>
       </div>
 
       <button id="btn-start" disabled class="btn-neon inline-flex items-center justify-center gap-2.5">
@@ -229,7 +228,7 @@
 
         <div class="mt-[18px] grid grid-cols-2 gap-2.5">
           <button id="btn-save" class="btn-neon col-span-2 inline-flex items-center justify-center gap-2">
-            <i data-lucide="download" class="size-4"></i>Guardar invitación
+            <i data-lucide="download" class="size-4"></i><span id="btn-save-txt">Guardar invitación</span>
           </button>
           <button id="btn-cal" class="btn-ghost inline-flex items-center justify-center gap-2">
             <i data-lucide="calendar-plus" class="size-4"></i>Agendar
@@ -256,8 +255,11 @@
   </div>
 
   <script src="icons.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js"></script>
+  <!-- integrity (SRI): el navegador rechaza el archivo si no es exactamente esta versión publicada -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js"
+          integrity="sha256-5mVock+ISOV8wqVuS+o6W4bOP/gbLaEerI7XqwKye9Q=" crossorigin="anonymous"></script>
   <script src="config.js"></script>
+  <script src="invitacion-core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

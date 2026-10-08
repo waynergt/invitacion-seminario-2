@@ -2,6 +2,14 @@
 const CONFIG = window.CONFIG;
 
 const $ = (s) => document.querySelector(s);
+/** Crea elementos sin innerHTML: el texto siempre entra como textContent (no se interpreta como HTML). */
+function h(tag, attrs = {}, ...hijos) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  for (const c of hijos) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+const icono = (nombre, clase) => h("i", { "data-lucide": nombre, class: clase });
 const GLYPHS = "ABCDEF0123456789#$%&@<>/\\{}[]=+*";
 const rnd = (n) => Array.from({ length: n }, () => GLYPHS[(Math.random() * GLYPHS.length) | 0]).join("");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -171,26 +179,30 @@ function mostrarAccesoAlternativo() {
    static/invitados.json guarda los nombres cifrados con AES-256-GCM. Del código salen
    (1) el id para encontrar su entrada y (2) la llave para descifrar su nombre.
    Sin un código válido no hay nombre que mostrar: no se puede inventar uno.
-   La lista se genera con:  npm run invitados  (ver scripts/invitados.mjs)        */
-const utf8 = (s) => new TextEncoder().encode(s);
-const sha256 = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", utf8(s)));
-const desdeB64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+   La criptografía está en invitacion-core.js (la misma que usa npm run invitados y las pruebas). */
+const { ErrorInvitacion } = window.Invitacion;
 
 async function verificarInvitacion() {
-  const codigo = decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^0-9A-Z]/g, "");
-  if (codigo.length < 8) throw new Error("El enlace no trae código de invitación");
-  if (!crypto.subtle) throw new Error("Se requiere HTTPS para descifrar la invitación");
-
-  const id = [...(await sha256(`umg-invitado-id:${codigo}`))]
-    .map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-  const lista = await (await fetch("invitados.json", { cache: "no-cache" })).json();
-  const entrada = lista.e?.[id];
-  if (!entrada) throw new Error("Código no registrado");
-
-  const llave = await crypto.subtle.importKey("raw", await sha256(`umg-invitado-key:${codigo}`), "AES-GCM", false, ["decrypt"]);
-  const plano = await crypto.subtle.decrypt({ name: "AES-GCM", iv: desdeB64url(entrada.iv) }, llave, desdeB64url(entrada.ct));
-  return { id, nombre: JSON.parse(new TextDecoder().decode(plano)).n };
+  const codigo = Invitacion.codigoDesdeHash(location.hash);
+  let lista;
+  try {
+    const r = await fetch("invitados.json", {
+      cache: "no-cache",
+      signal: AbortSignal.timeout?.(15000),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    lista = await r.json();
+  } catch (e) {
+    throw new ErrorInvitacion("RED", `No se pudo descargar la lista de invitados (${e.message})`);
+  }
+  return Invitacion.abrir(codigo, lista);
 }
+
+const MENSAJES_ERROR = {
+  RED: ["SIN CONEXIÓN", "No pudimos verificar tu invitación. Revisa tu conexión a internet e inténtalo de nuevo."],
+  SIN_CRYPTO: ["NAVEGADOR NO COMPATIBLE", "Abre el enlace en Chrome, Safari o Firefox actualizados (con https://)."],
+  DEFAULT: ["ACCESO DENEGADO", "Este enlace no corresponde a ninguna invitación. Abre el enlace personal que te enviaron por mensaje, completo y sin modificar."],
+};
 
 /* ---------- Etapa 1: Intro ---------- */
 let guestName = "", invitadoId = "";
@@ -213,16 +225,23 @@ verificarInvitacion().then(
     $("#btn-start").disabled = false;
   },
   (e) => {
-    console.warn("Invitación no válida:", e.message);
+    const tipo = e instanceof ErrorInvitacion ? e.tipo : "DESCONOCIDO";
+    console.warn(`Invitación no válida [${tipo}]`); // sin detalles internos en la consola
+    if (!(e instanceof ErrorInvitacion)) console.error(e);
     clearInterval(cipherTimer);
+    const [titulo, texto] = MENSAJES_ERROR[tipo] || MENSAJES_ERROR.DEFAULT;
+    $("#inv-titulo").textContent = titulo;
+    $("#inv-texto").textContent = texto;
+    $("#btn-reintentar").classList.toggle("hidden", tipo !== "RED");
     $("#destinatario").classList.add("hidden");
     $("#invalida").classList.replace("hidden", "flex");
     $("#btn-start").classList.replace("inline-flex", "hidden");
     $("#aviso-camara").classList.add("hidden");
-    $("#cipher").textContent = "ACCESO DENEGADO · ".repeat(12);
+    $("#cipher").textContent = `${titulo} · `.repeat(12);
     $("#cipher").classList.replace("text-azul-luz/55", "text-rojo-luz/50");
   },
 );
+$("#btn-reintentar").addEventListener("click", () => location.reload());
 
 async function iniciar() {
   if (!guestName) return;
@@ -360,17 +379,16 @@ function renderPass(kind, conf) {
   $("#p-org").textContent = CONFIG.organiza;
   $("#p-id").textContent = passId;
 
-  const icono = kind === "manual" ? "key-round" : ICONO_OBJETIVO[kind];
+  const iconoAuth = kind === "manual" ? "key-round" : ICONO_OBJETIVO[kind];
   const texto = kind === "manual"
     ? "Acceso alternativo autorizado"
     : `Autenticado por IA · ${NOMBRES[kind]} · ${Math.round(conf * 100)}%`;
   const ai = $("#p-ai");
-  ai.innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="${icono}" class="size-3.5"></i><span></span></span>`;
-  ai.querySelector("span span").textContent = texto;
+  ai.replaceChildren(h("span", { class: "inline-flex items-center gap-1.5" }, icono(iconoAuth, "size-3.5"), texto));
   lucide.createIcons();
 
   const bc = $("#barcode");
-  bc.innerHTML = "";
+  bc.replaceChildren();
   for (let i = 0; i < 48; i++) {
     const bar = document.createElement("i");
     bar.className = "block shrink-0 bg-haze";
@@ -392,7 +410,7 @@ function renderPass(kind, conf) {
 function iniciarCuentaRegresiva() {
   const box = $("#countdown"), label = $("#cd-label");
   const unidades = [["d", "DÍAS", 86400], ["h", "HORAS", 3600], ["m", "MIN", 60], ["s", "SEG", 1]];
-  box.innerHTML = unidades.map(([k, u]) => `<div><b class="cd-num" data-u="${k}">00</b><span class="cd-unit">${u}</span></div>`).join("");
+  box.replaceChildren(...unidades.map(([k, u]) => h("div", {}, h("b", { class: "cd-num", "data-u": k }, "00"), h("span", { class: "cd-unit" }, u))));
   const tick = () => {
     const ahora = Date.now();
     if (ahora >= FIN.getTime()) {
@@ -435,21 +453,16 @@ const sheet = $("#sheet");
 function openSheet(title, options) {
   $("#sheet-title").textContent = title;
   const box = $("#sheet-options");
-  box.innerHTML = "";
+  box.replaceChildren();
   for (const o of options) {
-    const a = document.createElement("a");
-    a.href = o.href;
-    if (o.newTab) { a.target = "_blank"; a.rel = "noopener"; }
-    a.className = "flex items-center gap-3.5 rounded-2xl border border-line bg-glass p-4 transition hover:border-azul-luz active:scale-[.98]";
-    a.innerHTML = `
-      <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-azul/40 to-rojo/25 text-azul-luz">
-        <i data-lucide="${o.icon}" class="size-5"></i>
-      </span>
-      <span class="flex flex-1 flex-col">
-        <span class="font-display text-sm font-bold tracking-wide">${o.label}</span>
-        <span class="mt-0.5 text-xs text-dim">${o.sub}</span>
-      </span>
-      <i data-lucide="chevron-right" class="size-4 text-dim"></i>`;
+    const a = h("a",
+      { href: o.href, class: "flex items-center gap-3.5 rounded-2xl border border-line bg-glass p-4 transition hover:border-azul-luz active:scale-[.98]" },
+      h("span", { class: "grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-azul/40 to-rojo/25 text-azul-luz" }, icono(o.icon, "size-5")),
+      h("span", { class: "flex flex-1 flex-col" },
+        h("span", { class: "font-display text-sm font-bold tracking-wide" }, o.label),
+        h("span", { class: "mt-0.5 text-xs text-dim" }, o.sub)),
+      icono("chevron-right", "size-4 text-dim"));
+    if (o.newTab) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
     a.addEventListener("click", closeSheet);
     box.appendChild(a);
   }
@@ -775,11 +788,11 @@ function descargarArchivo(blob, nombre) {
 
 $("#btn-save").addEventListener("click", async () => {
   const btn = $("#btn-save");
-  const original = btn.innerHTML;
+  const etiqueta = $("#btn-save-txt"), original = etiqueta.textContent;
   btn.disabled = true;
   try {
     if (!imagenPase) {
-      btn.textContent = "Generando…";
+      etiqueta.textContent = "Generando…";
       imagenPase = await crearImagenPase();
     }
     const nombre = `pase-vip-${passId}.png`;
@@ -800,6 +813,6 @@ $("#btn-save").addEventListener("click", async () => {
     alert("No se pudo generar la imagen. Puedes tomar una captura de pantalla 📸");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = original;
+    etiqueta.textContent = original;
   }
 });

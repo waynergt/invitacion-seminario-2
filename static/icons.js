@@ -39,7 +39,9 @@ window.lucide = {
         "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true",
       })) svg.setAttribute(k, v);
       svg.setAttribute("class", el.getAttribute("class") || "");
-      svg.innerHTML = ICONOS[el.dataset.lucide] || "";
+      // Solo se insertan los SVG fijos de la tabla ICONOS de este archivo (nunca texto externo)
+      const nombre = el.dataset.lucide;
+      svg.innerHTML = Object.prototype.hasOwnProperty.call(ICONOS, nombre) ? ICONOS[nombre] : "";
       el.replaceWith(svg);
     });
   },
