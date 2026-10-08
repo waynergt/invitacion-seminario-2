@@ -1,29 +1,23 @@
-/* ============ CONFIGURA TU EVENTO AQUÍ ============ */
-const CONFIG = {
-  evento: "Seminario de Ingeniería en Sistemas",
-  fecha: "2026-10-24",       // AAAA-MM-DD
-  hora: "18:00",             // formato 24 h
-  horaFin: "22:00",
-  lugar: "Hostal Las Marías",
-  direccion: "Taxisco, Santa Rosa, Guatemala",
-  lat: null,                 // ← latitud exacta (sin comillas)
-  lng: null,                 // ← longitud exacta (sin comillas)
-  organiza: "Décimo Ciclo de Ingeniería en Sistemas",
-  zonaHoraria: "America/Guatemala",
-  umbral: 0.35,              // confianza mínima para desbloquear (0 a 1)
-  intervalo: 400,            // ms entre análisis
-  confirmaciones: 2,         // detecciones seguidas para desbloquear
-  tiempoAlternativo: 25000,  // ms antes de mostrar el acceso alternativo
-};
-/* ================================================== */
+/* Los datos del evento están en config.js */
+const CONFIG = window.CONFIG;
 
 const $ = (s) => document.querySelector(s);
 const GLYPHS = "ABCDEF0123456789#$%&@<>/\\{}[]=+*";
 const rnd = (n) => Array.from({ length: n }, () => GLYPHS[(Math.random() * GLYPHS.length) | 0]).join("");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Momento exacto del evento (con la zona horaria de Guatemala, sin importar dónde esté el invitado)
+const INICIO = new Date(`${CONFIG.fecha}T${CONFIG.hora}:00${CONFIG.utcOffset}`);
+const FIN = new Date(`${CONFIG.fecha}T${CONFIG.horaFin}:00${CONFIG.utcOffset}`);
+
+// Textos de la página que vienen de config.js
+document.querySelectorAll("[data-cfg]").forEach((el) => (el.textContent = CONFIG[el.dataset.cfg] ?? ""));
 
 /* ---------- Red neuronal (ONNX Runtime Web) ---------- */
+// Si cambias el modelo, cámbiale también el nombre al archivo (los navegadores lo guardan en caché 1 año)
+const MODELO = "model/mobilenet_v3_large.int8.onnx";
 const OBJETIVOS = {
   cafe: ["coffee mug", "cup", "espresso", "coffeepot"],
   teclado: ["computer keyboard", "typewriter keyboard", "space bar", "laptop", "notebook"],
@@ -33,6 +27,7 @@ let session = null, labels = [];
 const indices = {};
 
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+ort.env.wasm.numThreads = 1; // sin cabeceras COOP/COEP el navegador no permite hilos
 
 // Empieza a descargar el modelo desde que abre la página (mientras escribe su nombre)
 const modelReady = (async () => {
@@ -40,12 +35,14 @@ const modelReady = (async () => {
   for (const [k, nombres] of Object.entries(OBJETIVOS)) {
     indices[k] = nombres.map((n) => labels.indexOf(n)).filter((i) => i >= 0);
   }
-  session = await ort.InferenceSession.create("model/mobilenet_v3.onnx", { executionProviders: ["wasm"] });
+  session = await ort.InferenceSession.create(MODELO, { executionProviders: ["wasm"] });
 })();
+modelReady.catch(() => {}); // el error se muestra al escanear
 
 const inCanvas = document.createElement("canvas");
 inCanvas.width = inCanvas.height = SIZE;
 const inCtx = inCanvas.getContext("2d", { willReadFrequently: true });
+const N = SIZE * SIZE, input = new Float32Array(3 * N);
 
 async function classify() {
   // Recorta el centro en cuadrado y lo reduce a 224x224
@@ -54,7 +51,6 @@ async function classify() {
   const { data } = inCtx.getImageData(0, 0, SIZE, SIZE);
 
   // Convierte a tensor normalizado [1, 3, 224, 224] (igual que torchvision)
-  const N = SIZE * SIZE, input = new Float32Array(3 * N);
   for (let i = 0; i < N; i++)
     for (let c = 0; c < 3; c++) input[c * N + i] = (data[i * 4 + c] / 255 - MEAN[c]) / STD[c];
 
@@ -82,42 +78,51 @@ async function classify() {
 }
 
 /* ---------- Fondo de red neuronal ---------- */
-(() => {
+const fondo = (() => {
   const c = $("#bg"), ctx = c.getContext("2d");
-  let w, h, pts, dpr;
+  let w, h, pts, dpr, raf = 0, pausado = false;
   const resize = () => {
     dpr = Math.min(devicePixelRatio || 1, 2);
     w = c.width = innerWidth * dpr; h = c.height = innerHeight * dpr;
     c.style.width = innerWidth + "px"; c.style.height = innerHeight + "px";
     const n = Math.min(70, Math.floor(innerWidth / 14));
-    pts = Array.from({ length: n }, () => ({
+    pts = Array.from({ length: n }, (_, i) => ({
       x: Math.random() * w, y: Math.random() * h,
       vx: (Math.random() - 0.5) * 0.35 * dpr, vy: (Math.random() - 0.5) * 0.35 * dpr,
+      oro: i % 9 === 0, // algunos nodos dorados, como los filetes del escudo
     }));
+    if (reduceMotion || pausado) draw(false);
   };
-  resize(); addEventListener("resize", resize);
-  const draw = () => {
+  const draw = (mover = true) => {
     ctx.clearRect(0, 0, w, h);
     const D = 130 * dpr;
-    for (const p of pts) {
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < 0 || p.x > w) p.vx *= -1;
-      if (p.y < 0 || p.y > h) p.vy *= -1;
-      ctx.fillStyle = "rgba(0,240,255,.7)";
-      ctx.fillRect(p.x, p.y, 2 * dpr, 2 * dpr);
-    }
     for (let i = 0; i < pts.length; i++)
       for (let j = i + 1; j < pts.length; j++) {
         const a = pts[i], b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
         if (d < D) {
-          ctx.strokeStyle = `rgba(139,92,246,${(1 - d / D) * 0.35})`;
+          ctx.strokeStyle = `rgba(28,114,165,${(1 - d / D) * 0.55})`;
           ctx.lineWidth = dpr;
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
       }
-    requestAnimationFrame(draw);
+    for (const p of pts) {
+      if (mover) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+      }
+      ctx.fillStyle = p.oro ? "rgba(226,188,106,.85)" : "rgba(79,176,232,.7)";
+      ctx.fillRect(p.x, p.y, 2 * dpr, 2 * dpr);
+    }
   };
-  draw();
+  const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+  resize(); addEventListener("resize", resize);
+  if (!reduceMotion) loop();
+  return {
+    // Mientras la red neuronal analiza la cámara, el fondo se congela para no robarle CPU
+    pausar() { pausado = true; cancelAnimationFrame(raf); },
+    reanudar() { if (pausado && !reduceMotion) { pausado = false; loop(); } },
+  };
 })();
 
 /* ---------- Utilidades ---------- */
@@ -130,7 +135,7 @@ function show(id) {
   scrollTo({ top: 0, behavior: "smooth" });
 }
 
-const LOG_COLORS = { ok: "text-neon-green", err: "text-rose-400", hi: "text-neon-cyan" };
+const LOG_COLORS = { ok: "text-oro-luz", err: "text-rojo-luz", hi: "text-azul-luz" };
 function log(msg, type = "") {
   const t = $("#log"), line = document.createElement("div");
   line.className = `truncate animate-stage ${LOG_COLORS[type] || ""}`;
@@ -140,7 +145,9 @@ function log(msg, type = "") {
 }
 
 function scramble(el, text, dur = 1000) {
+  text = String(text ?? "");
   return new Promise((res) => {
+    if (reduceMotion || !text) { el.textContent = text; return res(); }
     const t0 = performance.now();
     const step = (now) => {
       const p = Math.min(1, (now - t0) / dur), n = Math.floor(p * text.length);
@@ -157,15 +164,17 @@ function mostrarAccesoAlternativo() {
 }
 
 /* ---------- Etapa 1: Intro ---------- */
-const cipherTimer = setInterval(() => ($("#cipher").textContent = rnd(140)), 80);
+const cipherTimer = setInterval(() => ($("#cipher").textContent = rnd(140)), reduceMotion ? 1500 : 80);
 let guestName = "Invitado Especial";
 
-$("#btn-start").addEventListener("click", async () => {
+async function iniciar() {
   guestName = $("#guest").value.trim() || "Invitado Especial";
   clearInterval(cipherTimer);
   show("s-scan");
   await startCamera();
-});
+}
+$("#btn-start").addEventListener("click", iniciar, { once: true });
+$("#guest").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-start").click(); });
 
 /* ---------- Etapa 2: Escáner ---------- */
 const video = $("#video");
@@ -205,6 +214,7 @@ async function startCamera() {
     return;
   }
   log("Red neuronal en línea · inferencia local ✓", "ok");
+  fondo.pausar();
   loop();
 }
 
@@ -253,6 +263,7 @@ async function unlock(kind, conf) {
   log("Firma neuronal verificada ✓", "ok");
   await sleep(700);
   stream?.getTracks().forEach((t) => t.stop());
+  fondo.reanudar();
   show("s-pass");
   await decrypt();
   renderPass(kind, conf);
@@ -270,7 +281,8 @@ async function decrypt() {
   $("#decrypt").classList.replace("flex", "hidden");
 }
 
-const h12 = (t) => new Date(`2000-01-01T${t}`).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit", hour12: true });
+const fmtHora = (d) => d.toLocaleTimeString("es-GT", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: CONFIG.zonaHoraria });
+const capitalizar = (s) => s.replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());
 
 let passId = "";
 function renderPass(kind, conf) {
@@ -278,9 +290,13 @@ function renderPass(kind, conf) {
     .map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
   passId = `VIP-${hex.slice(0, 4)}-${hex.slice(4)}`;
 
-  const fecha = new Date(`${CONFIG.fecha}T${CONFIG.hora}`);
-  $("#p-date").textContent = fecha.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-  $("#p-time").textContent = `${h12(CONFIG.hora)} – ${h12(CONFIG.horaFin)}`;
+  $("#p-date").textContent = capitalizar(INICIO.toLocaleDateString("es-GT", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: CONFIG.zonaHoraria,
+  }));
+  // "6:00 – 10:00 p. m." en lugar de repetir "p. m." cuando ambas horas lo comparten
+  const [hi, hf] = [fmtHora(INICIO), fmtHora(FIN)];
+  const sufijo = (t) => t.replace(/^[\d:]+\s*/, "");
+  $("#p-time").textContent = sufijo(hi) === sufijo(hf) ? `${hi.replace(sufijo(hi), "").trim()} – ${hf}` : `${hi} – ${hf}`;
   $("#p-place").textContent = CONFIG.lugar;
   $("#p-org").textContent = CONFIG.organiza;
   $("#p-id").textContent = passId;
@@ -289,7 +305,9 @@ function renderPass(kind, conf) {
   const texto = kind === "manual"
     ? "Acceso alternativo autorizado"
     : `Autenticado por IA · ${kind === "cafe" ? "Café" : "Teclado"} · ${Math.round(conf * 100)}%`;
-  $("#p-ai").innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="${icono}" class="size-3.5"></i>${texto}</span>`;
+  const ai = $("#p-ai");
+  ai.innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="${icono}" class="size-3.5"></i><span></span></span>`;
+  ai.querySelector("span span").textContent = texto;
   lucide.createIcons();
 
   const bc = $("#barcode");
@@ -302,12 +320,40 @@ function renderPass(kind, conf) {
     bc.appendChild(bar);
   }
 
+  iniciarCuentaRegresiva();
+
   const wrap = $("#pass-wrap");
   wrap.classList.remove("hidden");
   wrap.classList.add("animate-reveal");
   scramble($("#p-title"), CONFIG.evento, 1200);
-  scramble($("#p-theme"), CONFIG.tema, 1400);
   scramble($("#p-guest"), guestName.toUpperCase(), 1600);
+}
+
+/* Cuenta regresiva al evento */
+function iniciarCuentaRegresiva() {
+  const box = $("#countdown"), label = $("#cd-label");
+  const unidades = [["d", "DÍAS", 86400], ["h", "HORAS", 3600], ["m", "MIN", 60], ["s", "SEG", 1]];
+  box.innerHTML = unidades.map(([k, u]) => `<div><b class="cd-num" data-u="${k}">00</b><span class="cd-unit">${u}</span></div>`).join("");
+  const tick = () => {
+    const ahora = Date.now();
+    if (ahora >= FIN.getTime()) {
+      label.lastChild.textContent = "EVENTO FINALIZADO · ¡GRACIAS POR VENIR!";
+      box.classList.add("hidden");
+      return clearInterval(id);
+    }
+    if (ahora >= INICIO.getTime()) {
+      label.lastChild.textContent = "¡EL EVENTO ESTÁ EN CURSO!";
+      box.classList.add("hidden");
+      return;
+    }
+    let resto = Math.floor((INICIO.getTime() - ahora) / 1000);
+    for (const [k, , seg] of unidades) {
+      box.querySelector(`[data-u="${k}"]`).textContent = String(Math.floor(resto / seg)).padStart(2, "0");
+      resto %= seg;
+    }
+  };
+  const id = setInterval(tick, 1000);
+  tick();
 }
 
 /* Efecto holográfico 3D */
@@ -335,9 +381,9 @@ function openSheet(title, options) {
     const a = document.createElement("a");
     a.href = o.href;
     if (o.newTab) { a.target = "_blank"; a.rel = "noopener"; }
-    a.className = "flex items-center gap-3.5 rounded-2xl border border-line bg-glass p-4 transition hover:border-neon-cyan active:scale-[.98]";
+    a.className = "flex items-center gap-3.5 rounded-2xl border border-line bg-glass p-4 transition hover:border-azul-luz active:scale-[.98]";
     a.innerHTML = `
-      <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-neon-cyan/20 to-neon-violet/20 text-neon-cyan">
+      <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-azul/40 to-rojo/25 text-azul-luz">
         <i data-lucide="${o.icon}" class="size-5"></i>
       </span>
       <span class="flex flex-1 flex-col">
@@ -354,17 +400,17 @@ function openSheet(title, options) {
 function closeSheet() { sheet.classList.replace("flex", "hidden"); }
 sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
 $("#sheet-close").addEventListener("click", closeSheet);
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
 
 /* Agendar: Google Calendar + Calendario de iPhone / .ics */
 $("#btn-cal").addEventListener("click", () => {
-  const d = CONFIG.fecha.replace(/-/g, "");
-  const t = (h) => h.replace(":", "") + "00";
+  const utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const google = "https://calendar.google.com/calendar/render?" + new URLSearchParams({
     action: "TEMPLATE",
     text: CONFIG.evento,
-    dates: `${d}T${t(CONFIG.hora)}/${d}T${t(CONFIG.horaFin)}`,
+    dates: `${utc(INICIO)}/${utc(FIN)}`,
     ctz: CONFIG.zonaHoraria,
-    details: `${CONFIG.tema}\nPase VIP: ${passId}\nOrganiza: ${CONFIG.organiza}`,
+    details: `Pase VIP: ${passId}\nOrganiza: ${CONFIG.organiza}\n${CONFIG.universidad} · ${CONFIG.sede}\n${location.origin}`,
     location: `${CONFIG.lugar}, ${CONFIG.direccion}`,
   });
 
@@ -392,24 +438,24 @@ $("#btn-map").addEventListener("click", () => {
   ];
   if (isIOS) {
     opciones.push({ icon: "compass", label: "Apple Maps", sub: "Mapas de iPhone", newTab: true,
-      href: `https://maps.apple.com/?daddr=${coords ? ll : q}` });
+      href: `https://maps.apple.com/?daddr=${coords ? ll : q}&q=${encodeURIComponent(CONFIG.lugar)}` });
   }
   openSheet("CÓMO LLEGAR", opciones);
 });
 
 $("#btn-again").addEventListener("click", () => location.reload());
 
-/* Dibuja los iconos de Lucide al cargar la página */
+/* Dibuja los iconos al cargar la página */
 lucide.createIcons();
 
 
 /* ======================================================
    GUARDAR INVITACIÓN COMO IMAGEN (PNG)
    ====================================================== */
-const LOGO = { a: "UMG", b: "SIS", sub: "CHIQUIMULILLA" };
 const COLORES = {
-  ink: "#05060f", haze: "#e6f1ff", dim: "#7d8bb0", cyan: "#00f0ff",
-  violet: "#8b5cf6", pink: "#ff2bd6", green: "#3dff9a", gold: "#ffd76a",
+  ink: "#040a14", haze: "#eaf2f8", dim: "#8ba0b6",
+  azul: "#1c72a5", azulLuz: "#4fb0e8", rojo: "#cb3332", rojoLuz: "#e5524f",
+  oro: "#b1873b", oroLuz: "#e2bc6a",
 };
 let imagenPase = null;
 
@@ -426,7 +472,14 @@ function partirLineas(ctx, texto, maxW) {
   return lineas;
 }
 
-const capitalizar = (s) => s.replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());
+function cargarImagen(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
 
 async function crearImagenPase() {
   await document.fonts.ready;
@@ -434,6 +487,7 @@ async function crearImagenPase() {
     '900 56px "Orbitron"', '700 48px "Orbitron"', '600 22px "JetBrains Mono"',
     '400 24px "JetBrains Mono"', '400 30px "Inter"', '600 32px "Inter"',
   ].map((f) => document.fonts.load(f)));
+  const logo = await cargarImagen("img/umg-logo.webp").catch(() => null);
 
   const C = COLORES;
   const W = 1080, M = 70;
@@ -456,41 +510,45 @@ async function crearImagenPase() {
 
     let y = CY + 110;
 
-    // Logo
-    let lx = X;
-    lx += txt(LOGO.a, lx, y, '900 44px "Orbitron"', C.haze, "4px");
-    lx += txt("//", lx, y, '900 44px "Orbitron"', C.cyan, "4px");
-    txt(LOGO.b, lx, y, '900 44px "Orbitron"', C.haze, "4px");
-    txt(LOGO.sub, X, y + 40, '600 20px "JetBrains Mono"', C.dim, "6px");
+    // Logo de la UMG + UMG//SIS
+    const L = 104;
+    if (dibujar && logo) {
+      ctx.save();
+      ctx.shadowColor = "rgba(226,188,106,.5)"; ctx.shadowBlur = 30;
+      ctx.drawImage(logo, X, y - 74, L, L);
+      ctx.restore();
+    }
+    let lx = X + (logo ? L + 26 : 0);
+    const lx0 = lx;
+    lx += txt("UMG", lx, y - 8, '900 44px "Orbitron"', C.haze, "4px");
+    lx += txt("//", lx, y - 8, '900 44px "Orbitron"', C.rojoLuz, "4px");
+    txt("SIS", lx, y - 8, '900 44px "Orbitron"', C.haze, "4px");
+    txt(CONFIG.sede.toUpperCase(), lx0, y + 30, '600 20px "JetBrains Mono"', C.dim, "6px");
 
     // Etiqueta VIP
     if (dibujar) {
-      const bw = 160, bh = 60, bx = X + IW - bw, by = y - 46;
+      const bw = 160, bh = 60, bx = X + IW - bw, by = y - 54;
       const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-      g.addColorStop(0, C.gold); g.addColorStop(1, "#ff9f43");
+      g.addColorStop(0, C.oroLuz); g.addColorStop(1, C.oro);
       ctx.save();
-      ctx.shadowColor = "rgba(255,200,80,.5)"; ctx.shadowBlur = 30;
+      ctx.shadowColor = "rgba(226,188,106,.5)"; ctx.shadowBlur = 30;
       ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.fill();
       ctx.restore();
       txt("VIP", bx + bw / 2 + 4, by + 41, '900 26px "Orbitron"', "#1a1000", "8px", "center");
     }
 
     // Encabezado
-    y += 130;
-    txt("● INVITACIÓN DESENCRIPTADA", X, y, '600 22px "JetBrains Mono"', C.green, "6px");
+    y += 140;
+    txt("● INVITACIÓN DESENCRIPTADA", X, y, '600 22px "JetBrains Mono"', C.oroLuz, "6px");
     y += 80;
     y += bloque(CONFIG.evento, '900 56px "Orbitron"', C.haze, IW, 68);
-    if (CONFIG.tema) {
-      y += 56;
-      y += bloque(CONFIG.tema, '400 30px "Inter"', C.dim, IW, 42);
-    }
 
     // Invitado
-    y += 80;
+    y += 90;
     txt("INVITADO", X, y, '600 20px "JetBrains Mono"', C.dim, "5px");
     y += 60;
     const gradNombre = ctx.createLinearGradient(X, 0, X + IW * 0.8, 0);
-    gradNombre.addColorStop(0, "#ffffff"); gradNombre.addColorStop(1, C.cyan);
+    gradNombre.addColorStop(0, "#ffffff"); gradNombre.addColorStop(1, C.azulLuz);
     y += bloque(guestName.toUpperCase(), '700 48px "Orbitron"', gradNombre, IW, 58, "2px");
 
     // Datos en dos columnas
@@ -507,7 +565,7 @@ async function crearImagenPase() {
       y += h;
     };
     y += 90;
-    fila(["FECHA", capitalizar($("#p-date").textContent)], ["HORARIO", $("#p-time").textContent]);
+    fila(["FECHA", $("#p-date").textContent], ["HORARIO", $("#p-time").textContent]);
     y += 80;
     fila(["LUGAR", $("#p-place").textContent], ["ORGANIZA", $("#p-org").textContent]);
 
@@ -539,14 +597,14 @@ async function crearImagenPase() {
       ctx.globalAlpha = 1;
     }
     txt("ID DE ACCESO", X + IW, barTop + 40, '600 20px "JetBrains Mono"', C.dim, "5px", "right");
-    txt(passId, X + IW, barTop + 92, '600 36px "JetBrains Mono"', C.cyan, "0px", "right");
+    txt(passId, X + IW, barTop + 92, '600 36px "JetBrains Mono"', C.azulLuz, "0px", "right");
     y = barTop + 110;
 
     // Autenticación por IA
     y += 70;
     if (dibujar) {
       ctx.save();
-      ctx.fillStyle = C.green; ctx.shadowColor = C.green; ctx.shadowBlur = 16;
+      ctx.fillStyle = C.oroLuz; ctx.shadowColor = C.oroLuz; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(X + 8, y - 8, 8, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
@@ -567,41 +625,53 @@ async function crearImagenPase() {
   const ctx = cv.getContext("2d");
 
   // Fondo
-  const bg = ctx.createRadialGradient(W / 2, -200, 50, W / 2, -200, H * 1.1);
-  bg.addColorStop(0, "#1a1046"); bg.addColorStop(0.6, C.ink); bg.addColorStop(1, C.ink);
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = "rgba(0,240,255,.05)"; ctx.lineWidth = 1;
+  ctx.fillStyle = C.ink; ctx.fillRect(0, 0, W, H);
+  const bgAzul = ctx.createRadialGradient(W / 2, -200, 50, W / 2, -200, H * 0.9);
+  bgAzul.addColorStop(0, "rgba(28,114,165,.55)"); bgAzul.addColorStop(1, "rgba(28,114,165,0)");
+  ctx.fillStyle = bgAzul; ctx.fillRect(0, 0, W, H);
+  const bgRojo = ctx.createRadialGradient(W, H + 100, 50, W, H + 100, H * 0.6);
+  bgRojo.addColorStop(0, "rgba(203,51,50,.22)"); bgRojo.addColorStop(1, "rgba(203,51,50,0)");
+  ctx.fillStyle = bgRojo; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(79,176,232,.05)"; ctx.lineWidth = 1;
   for (let gx = 0; gx <= W; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
   for (let gy = 0; gy <= H; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
-  ctx.fillStyle = "rgba(0,240,255,.6)";
-  for (let i = 0; i < 60; i++) ctx.fillRect(Math.random() * W, Math.random() * H, 3, 3);
+  for (let i = 0; i < 60; i++) {
+    ctx.fillStyle = i % 9 === 0 ? "rgba(226,188,106,.7)" : "rgba(79,176,232,.6)";
+    ctx.fillRect(Math.random() * W, Math.random() * H, 3, 3);
+  }
 
   // Tarjeta con brillo
   const fondoTarjeta = ctx.createLinearGradient(CX, CY, CX + CW * 0.4, CY + CH);
-  fondoTarjeta.addColorStop(0, "rgba(28,22,66,.97)");
-  fondoTarjeta.addColorStop(1, "rgba(6,8,22,.98)");
+  fondoTarjeta.addColorStop(0, "rgba(14,40,70,.97)");
+  fondoTarjeta.addColorStop(1, "rgba(4,10,20,.98)");
   ctx.save();
-  ctx.shadowColor = "rgba(139,92,246,.55)"; ctx.shadowBlur = 90; ctx.shadowOffsetY = 30;
+  ctx.shadowColor = "rgba(28,114,165,.6)"; ctx.shadowBlur = 90; ctx.shadowOffsetY = 30;
   ctx.fillStyle = fondoTarjeta;
   ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.fill();
   ctx.restore();
 
-  // Reflejo holográfico
+  // Reflejo holográfico + marca de agua del escudo
   ctx.save();
   ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.clip();
   const holo = ctx.createLinearGradient(CX, CY, CX + CW, CY + CH);
-  holo.addColorStop(0.2, "rgba(0,240,255,0)");
-  holo.addColorStop(0.35, "rgba(0,240,255,.09)");
-  holo.addColorStop(0.5, "rgba(255,43,214,.09)");
-  holo.addColorStop(0.65, "rgba(139,92,246,.09)");
-  holo.addColorStop(0.8, "rgba(139,92,246,0)");
+  holo.addColorStop(0.2, "rgba(79,176,232,0)");
+  holo.addColorStop(0.35, "rgba(79,176,232,.08)");
+  holo.addColorStop(0.5, "rgba(226,188,106,.08)");
+  holo.addColorStop(0.65, "rgba(229,82,79,.07)");
+  holo.addColorStop(0.8, "rgba(229,82,79,0)");
   ctx.fillStyle = holo; ctx.fillRect(CX, CY, CW, CH);
+  if (logo) {
+    ctx.globalAlpha = 0.05;
+    const wm = 520;
+    ctx.drawImage(logo, CX + CW - wm * 0.72, CY + CH * 0.42, wm, wm);
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 
-  // Borde neón
+  // Borde en los colores del escudo
   const borde = ctx.createLinearGradient(CX, CY, CX + CW, CY + CH);
-  borde.addColorStop(0, C.cyan); borde.addColorStop(0.35, C.violet);
-  borde.addColorStop(0.65, C.pink); borde.addColorStop(0.85, C.gold); borde.addColorStop(1, C.cyan);
+  borde.addColorStop(0, C.oroLuz); borde.addColorStop(0.3, C.rojoLuz);
+  borde.addColorStop(0.5, "#ffffff"); borde.addColorStop(0.75, C.azulLuz); borde.addColorStop(1, C.oroLuz);
   ctx.strokeStyle = borde; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.roundRect(CX, CY, CW, CH, 48); ctx.stroke();
 

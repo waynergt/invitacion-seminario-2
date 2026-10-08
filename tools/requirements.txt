@@ -1,0 +1,5 @@
+# Solo para regenerar el modelo (tools/export_model.py). El sitio no usa Python.
+torch
+torchvision
+onnx
+numpy

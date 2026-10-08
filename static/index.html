@@ -3,13 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#05060f" />
-  <title>ACCESO CLASIFICADO · Seminario de Ingeniería en Sistemas</title>
+  <meta name="theme-color" content="#040a14" />
+  <title>ACCESO CLASIFICADO · {{EVENTO}}</title>
+  <meta name="description" content="{{DESCRIPCION}}" />
+
+  <!-- Vista previa al compartir el link (WhatsApp, Facebook, Telegram…) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_GT" />
+  <meta property="og:site_name" content="Universidad Mariano Gálvez · Ingeniería en Sistemas" />
+  <meta property="og:url" content="{{SITIO}}/" />
+  <meta property="og:title" content="Tienes una invitación: {{EVENTO}}" />
+  <meta property="og:description" content="{{DESCRIPCION}}" />
+  <meta property="og:image" content="{{SITIO}}/img/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Logo de la Universidad Mariano Gálvez y datos del seminario" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="output.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2305060f'/><path d='M9 16l5 5 9-10' stroke='%2300f0ff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
 </head>
 <body class="min-h-dvh overflow-x-hidden font-sans text-haze antialiased">
   <canvas id="bg" class="pointer-events-none fixed inset-0 z-0"></canvas>
@@ -20,26 +38,37 @@
 
     <!-- ===== ETAPA 1: INTRO ===== -->
     <section id="s-intro" class="stage flex animate-stage flex-col gap-[18px]">
-      <div class="flex items-center gap-2 self-start rounded-full border border-line bg-neon-cyan/5 px-3 py-2 font-mono text-[11px] font-semibold tracking-[.18em] text-neon-cyan">
-        <span class="size-[7px] shrink-0 animate-blink rounded-full bg-neon-cyan shadow-[0_0_10px_var(--color-neon-cyan)]"></span>
+      <header class="flex items-center gap-3.5">
+        <div class="logo-ring size-[68px] shrink-0">
+          <img src="img/umg-logo.webp" alt="Universidad Mariano Gálvez" width="68" height="68" class="size-full rounded-full" />
+        </div>
+        <div class="min-w-0">
+          <div class="font-display text-[12.5px] leading-snug font-bold tracking-[.1em] text-haze uppercase" data-cfg="universidad"></div>
+          <div class="mt-1 font-mono text-[10px] font-semibold tracking-[.2em] text-oro-luz">INGENIERÍA EN SISTEMAS</div>
+          <div class="mt-0.5 font-mono text-[10px] font-semibold tracking-[.2em] text-dim uppercase" data-cfg="sede"></div>
+        </div>
+      </header>
+
+      <div class="flex items-center gap-2 self-start rounded-full border border-line bg-azul-luz/5 px-3 py-2 font-mono text-[11px] font-semibold tracking-[.18em] text-azul-luz">
+        <span class="size-[7px] shrink-0 animate-blink rounded-full bg-rojo-luz shadow-[0_0_10px_var(--color-rojo-luz)]"></span>
         TRANSMISIÓN ENCRIPTADA
       </div>
 
-      <h1 class="glitch bg-linear-to-r from-white via-neon-cyan to-neon-violet bg-clip-text font-display text-[clamp(30px,9vw,44px)] leading-[1.05] font-black tracking-wide text-transparent"
+      <h1 class="glitch bg-linear-to-r from-white via-white to-azul-luz bg-clip-text font-display text-[clamp(30px,9vw,44px)] leading-[1.05] font-black tracking-wide text-transparent"
           data-text="ACCESO RESTRINGIDO">ACCESO RESTRINGIDO</h1>
 
       <p class="text-[15px] leading-relaxed text-dim">
         Has recibido una invitación cifrada. Solo una red neuronal puede verificar tu identidad y desbloquearla.
       </p>
 
-      <div id="cipher" class="h-[82px] overflow-hidden rounded-xl border border-dashed border-line bg-black/25 p-3.5 font-mono text-xs leading-normal break-all text-neon-cyan/55 [text-shadow:0_0_8px_rgb(0_240_255/.4)]"></div>
+      <div id="cipher" aria-hidden="true" class="h-[82px] overflow-hidden rounded-xl border border-dashed border-line bg-black/25 p-3.5 font-mono text-xs leading-normal break-all text-azul-luz/55 [text-shadow:0_0_8px_rgb(79_176_232/.4)]"></div>
 
       <label class="flex flex-col gap-2">
         <span class="flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[.2em] text-dim">
           <i data-lucide="fingerprint" class="size-3.5"></i>IDENTIFÍCATE
         </span>
-        <input id="guest" maxlength="32" placeholder="Escribe tu nombre" autocomplete="name"
-          class="rounded-xl border border-line bg-glass px-4 py-[15px] text-base text-haze outline-none backdrop-blur-md transition placeholder:text-dim/70 focus:border-neon-cyan focus:shadow-[0_0_0_4px_rgb(0_240_255/.12),0_0_24px_rgb(0_240_255/.25)]" />
+        <input id="guest" maxlength="32" placeholder="Escribe tu nombre" autocomplete="name" enterkeyhint="go"
+          class="rounded-xl border border-line bg-glass px-4 py-[15px] text-base text-haze outline-none backdrop-blur-md transition placeholder:text-dim/70 focus:border-azul-luz focus:shadow-[0_0_0_4px_rgb(79_176_232/.14),0_0_24px_rgb(79_176_232/.25)]" />
       </label>
 
       <button id="btn-start" class="btn-neon inline-flex items-center justify-center gap-2.5">
@@ -50,8 +79,8 @@
         <i data-lucide="lock" class="mt-px size-3.5 shrink-0"></i>
         Se pedirá acceso a tu cámara. Las imágenes se analizan en tu dispositivo y no se envían a ningún lado.
       </p>
-      <p class="flex items-center justify-center gap-1.5 font-mono text-[10px] font-semibold tracking-[.3em] text-dim/50">
-        <i data-lucide="cpu" class="size-3"></i>DECIMO CICLO DE INGENIERÍA EN SISTEMAS
+      <p class="text-center font-mono text-[10px] leading-relaxed font-semibold tracking-[.2em] text-dim/60 uppercase">
+        <i data-lucide="cpu" class="mr-1 inline size-3 align-[-2px]"></i><span data-cfg="organiza"></span>
       </p>
     </section>
 
@@ -59,9 +88,9 @@
     <section id="s-scan" class="stage hidden animate-stage flex-col gap-[18px]">
       <div class="rounded-2xl border border-line bg-glass px-4 py-3.5 text-center text-[15px] leading-relaxed backdrop-blur-md">
         Muestra una
-        <b class="inline-flex items-center gap-1 font-semibold text-neon-cyan"><i data-lucide="coffee" class="size-4"></i>taza de café</b>
+        <b class="inline-flex items-center gap-1 font-semibold text-azul-luz"><i data-lucide="coffee" class="size-4"></i>taza de café</b>
         o un
-        <b class="inline-flex items-center gap-1 font-semibold text-neon-cyan"><i data-lucide="keyboard" class="size-4"></i>teclado</b>
+        <b class="inline-flex items-center gap-1 font-semibold text-azul-luz"><i data-lucide="keyboard" class="size-4"></i>teclado</b>
         a la cámara para desencriptar tu invitación
       </div>
 
@@ -70,7 +99,7 @@
         <div class="corners"><i></i><i></i><i></i><i></i></div>
         <div class="laser"></div>
         <div class="pointer-events-none absolute inset-[28%] z-[2] animate-spin-slow rounded-full border border-dashed border-white/35">
-          <div class="absolute inset-[18%] rounded-full border border-neon-violet/40"></div>
+          <div class="absolute inset-[18%] rounded-full border border-oro-luz/40"></div>
         </div>
         <div id="vp-label" class="vp-label">BUSCANDO OBJETIVO…</div>
         <div id="flash" class="flash"></div>
@@ -79,25 +108,25 @@
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl border border-line bg-glass p-3">
           <div class="mb-2 flex items-center justify-between font-mono text-[11px] font-semibold tracking-wide">
-            <span class="flex items-center gap-1.5"><i data-lucide="coffee" class="size-3.5 text-neon-cyan"></i>CAFÉ</span>
+            <span class="flex items-center gap-1.5"><i data-lucide="coffee" class="size-3.5 text-azul-luz"></i>CAFÉ</span>
             <span id="v-cafe">0%</span>
           </div>
           <div class="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div id="b-cafe" class="h-full w-0 rounded-full bg-linear-to-r from-neon-violet to-neon-cyan shadow-[0_0_12px_var(--color-neon-cyan)] transition-[width] duration-500"></div>
+            <div id="b-cafe" class="meter h-full w-0 rounded-full transition-[width] duration-500"></div>
           </div>
         </div>
         <div class="rounded-xl border border-line bg-glass p-3">
           <div class="mb-2 flex items-center justify-between font-mono text-[11px] font-semibold tracking-wide">
-            <span class="flex items-center gap-1.5"><i data-lucide="keyboard" class="size-3.5 text-neon-cyan"></i>TECLADO</span>
+            <span class="flex items-center gap-1.5"><i data-lucide="keyboard" class="size-3.5 text-azul-luz"></i>TECLADO</span>
             <span id="v-teclado">0%</span>
           </div>
           <div class="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div id="b-teclado" class="h-full w-0 rounded-full bg-linear-to-r from-neon-violet to-neon-cyan shadow-[0_0_12px_var(--color-neon-cyan)] transition-[width] duration-500"></div>
+            <div id="b-teclado" class="meter h-full w-0 rounded-full transition-[width] duration-500"></div>
           </div>
         </div>
       </div>
 
-      <div id="log" class="flex h-[124px] flex-col justify-end overflow-hidden rounded-xl border border-line bg-black/45 px-3.5 py-3 font-mono text-xs leading-[1.7] text-dim"></div>
+      <div id="log" aria-live="polite" class="flex h-[124px] flex-col justify-end overflow-hidden rounded-xl border border-line bg-black/45 px-3.5 py-3 font-mono text-xs leading-[1.7] text-dim"></div>
 
       <button id="btn-alt" class="btn-ghost hidden items-center justify-center gap-2">
         <i data-lucide="key-round" class="size-4"></i>¿Sin café cerca? Acceso alternativo
@@ -106,41 +135,47 @@
 
     <!-- ===== ETAPA 3: PASE VIP ===== -->
     <section id="s-pass" class="stage hidden animate-stage flex-col gap-[18px]">
-      <div id="decrypt" class="flex flex-col items-center gap-3.5 py-10 text-center">
-        <div class="size-30 animate-spin rounded-full border-2 border-line border-t-neon-cyan border-r-neon-violet shadow-[0_0_40px_rgb(0_240_255/.25),inset_0_0_30px_rgb(139_92_246/.2)]"></div>
-        <div id="dec-pct" class="font-display text-[42px] font-black text-neon-cyan [text-shadow:0_0_20px_rgb(0_240_255/.6)]">0%</div>
+      <div id="decrypt" class="flex flex-col items-center gap-4 py-10 text-center">
+        <div class="relative grid size-32 place-items-center">
+          <div class="absolute inset-0 animate-spin rounded-full border-2 border-line border-t-azul-luz border-r-oro-luz shadow-[0_0_40px_rgb(79_176_232/.25),inset_0_0_30px_rgb(203_51_50/.2)]"></div>
+          <img src="img/umg-logo.webp" alt="" width="92" height="92" class="size-[92px] animate-breathe rounded-full" />
+        </div>
+        <div id="dec-pct" class="font-display text-[42px] font-black text-azul-luz [text-shadow:0_0_20px_rgb(79_176_232/.6)]">0%</div>
         <div id="dec-step" class="min-h-[1.4em] font-mono text-[13px] tracking-wider text-dim"></div>
       </div>
 
       <div id="pass-wrap" class="hidden perspective-[1200px]">
         <article id="pass" class="pass relative overflow-hidden rounded-3xl px-[22px] pt-6 pb-5">
           <div class="holo"></div>
+          <img src="img/umg-logo.webp" alt="" aria-hidden="true" class="pass-watermark" />
 
-          <div class="flex items-center justify-between">
-            <div class="leading-none">
-              <div class="font-display text-[17px] font-black tracking-[.12em]">UMG<span class="text-neon-cyan">//</span>SIS</div>
-              <div class="mt-1.5 font-mono text-[9px] font-semibold tracking-[.3em] text-dim">CHIQUIMULILLA</div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <img src="img/umg-logo.webp" alt="Universidad Mariano Gálvez" width="46" height="46" class="size-[46px] rounded-full shadow-[0_0_18px_rgb(177_135_59/.45)]" />
+              <div class="leading-none">
+                <div class="font-display text-[17px] font-black tracking-[.12em]">UMG<span class="text-rojo-luz">//</span>SIS</div>
+                <div class="mt-1.5 font-mono text-[9px] font-semibold tracking-[.3em] text-dim uppercase" data-cfg="sede"></div>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5 rounded-lg bg-linear-to-r from-gold to-[#ff9f43] py-[7px] pr-2.5 pl-3 font-display text-xs font-black tracking-[.3em] text-[#1a1000] shadow-[0_0_24px_rgb(255_200_80/.5)]">
+            <div class="flex items-center gap-1.5 rounded-lg bg-linear-to-r from-oro-luz to-oro py-[7px] pr-2.5 pl-3 font-display text-xs font-black tracking-[.3em] text-[#1a1000] shadow-[0_0_24px_rgb(226_188_106/.45)]">
               <i data-lucide="crown" class="size-3.5"></i>VIP
             </div>
           </div>
 
-          <div class="mt-[22px] flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[.25em] text-neon-green">
+          <div class="mt-[22px] flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[.25em] text-oro-luz">
             <i data-lucide="lock-open" class="size-3.5"></i>INVITACIÓN DESENCRIPTADA
           </div>
           <h2 id="p-title" class="mt-2 font-display text-[clamp(21px,6.4vw,27px)] leading-[1.15] font-black"></h2>
-          <p id="p-theme" class="mt-1.5 text-sm leading-normal text-dim"></p>
 
           <div class="mt-5">
             <small class="pass-label flex items-center gap-1"><i data-lucide="user-round" class="size-3"></i>INVITADO</small>
-            <div id="p-guest" class="bg-linear-to-r from-white to-neon-cyan bg-clip-text font-display text-[clamp(18px,5.5vw,22px)] font-bold tracking-wide break-words text-transparent"></div>
+            <div id="p-guest" class="bg-linear-to-r from-white to-azul-luz bg-clip-text font-display text-[clamp(18px,5.5vw,22px)] font-bold tracking-wide break-words text-transparent"></div>
           </div>
 
           <div class="mt-[18px] grid grid-cols-2 gap-x-3.5 gap-y-4 text-sm leading-snug">
             <div>
               <small class="pass-label flex items-center gap-1"><i data-lucide="calendar" class="size-3"></i>FECHA</small>
-              <b id="p-date" class="font-semibold capitalize"></b>
+              <b id="p-date" class="font-semibold"></b>
             </div>
             <div>
               <small class="pass-label flex items-center gap-1"><i data-lucide="clock" class="size-3"></i>HORARIO</small>
@@ -156,23 +191,29 @@
             </div>
           </div>
 
+          <!-- Cuenta regresiva -->
+          <div class="mt-5 rounded-2xl border border-line bg-black/25 px-3 pt-2.5 pb-3">
+            <small id="cd-label" class="pass-label flex items-center justify-center gap-1 text-center"><i data-lucide="hourglass" class="size-3"></i>FALTAN</small>
+            <div id="countdown" class="grid grid-cols-4 gap-1.5 text-center"></div>
+          </div>
+
           <div class="perf"></div>
 
           <div class="flex items-center gap-3.5">
-            <div id="barcode" class="flex h-[46px] flex-1 gap-0.5 overflow-hidden"></div>
+            <div id="barcode" aria-hidden="true" class="flex h-[46px] flex-1 gap-0.5 overflow-hidden"></div>
             <div class="text-right">
               <small class="pass-label">ID DE ACCESO</small>
-              <b id="p-id" class="font-mono text-[13px] font-semibold whitespace-nowrap text-neon-cyan"></b>
+              <b id="p-id" class="font-mono text-[13px] font-semibold whitespace-nowrap text-azul-luz"></b>
             </div>
           </div>
 
           <div class="mt-4 flex items-center gap-2 font-mono text-[11px] text-dim">
-            <span class="size-[7px] shrink-0 animate-blink rounded-full bg-neon-green shadow-[0_0_10px_var(--color-neon-green)]"></span>
+            <span class="size-[7px] shrink-0 animate-blink rounded-full bg-oro-luz shadow-[0_0_10px_var(--color-oro-luz)]"></span>
             <span id="p-ai"></span>
           </div>
         </article>
 
-                <div class="mt-[18px] grid grid-cols-2 gap-2.5">
+        <div class="mt-[18px] grid grid-cols-2 gap-2.5">
           <button id="btn-save" class="btn-neon col-span-2 inline-flex items-center justify-center gap-2">
             <i data-lucide="download" class="size-4"></i>Guardar invitación
           </button>
@@ -191,8 +232,8 @@
   </main>
 
   <!-- ===== MENÚ DE OPCIONES (calendario / mapas) ===== -->
-  <div id="sheet" class="fixed inset-0 z-[60] hidden items-end justify-center bg-ink/70 p-4 backdrop-blur-sm sm:items-center">
-    <div class="w-full max-w-[420px] animate-sheet rounded-3xl border border-line bg-[#0b0e22]/95 p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-20px_80px_-20px_rgb(139_92_246/.6)]">
+  <div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" class="fixed inset-0 z-[60] hidden items-end justify-center bg-ink/70 p-4 backdrop-blur-sm sm:items-center">
+    <div class="w-full max-w-[420px] animate-sheet rounded-3xl border border-line bg-[#071426]/95 p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-20px_80px_-20px_rgb(28_114_165/.6)]">
       <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20"></div>
       <p id="sheet-title" class="mb-4 text-center font-mono text-[11px] font-semibold tracking-[.25em] text-dim"></p>
       <div id="sheet-options" class="grid gap-2.5"></div>
@@ -200,8 +241,9 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+  <script src="icons.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
