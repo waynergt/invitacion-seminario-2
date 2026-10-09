@@ -180,9 +180,16 @@
           </div>
           <h2 id="p-title" class="mt-2 font-display text-[clamp(21px,6.4vw,27px)] leading-[1.15] font-black"></h2>
 
-          <div class="mt-5">
-            <small class="pass-label flex items-center gap-1"><i data-lucide="user-round" class="size-3"></i>INVITADO</small>
-            <div id="p-guest" class="bg-linear-to-r from-white to-azul-luz bg-clip-text font-display text-[clamp(18px,5.5vw,22px)] font-bold tracking-wide break-words text-transparent"></div>
+          <div class="mt-5 flex items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <small class="pass-label flex items-center gap-1"><i data-lucide="user-round" class="size-3"></i>INVITADO</small>
+              <div id="p-guest" class="bg-linear-to-r from-white to-azul-luz bg-clip-text font-display text-[clamp(18px,5.5vw,22px)] font-bold tracking-wide break-words text-transparent"></div>
+            </div>
+            <!-- Mesa asignada (viene cifrada junto al nombre; se oculta si el invitado no tiene mesa) -->
+            <div id="p-mesa-box" class="hidden min-w-[72px] shrink-0 flex-col items-center rounded-2xl border border-oro-luz/50 bg-oro/10 px-3 pt-2 pb-2.5 text-center shadow-[0_0_24px_rgb(226_188_106/.18)]">
+              <small class="flex items-center gap-1 font-mono text-[9px] font-semibold tracking-[.2em] text-oro-luz"><i data-lucide="armchair" class="size-3"></i>MESA</small>
+              <b id="p-mesa" class="mt-1 font-display text-[26px] leading-none font-black break-all text-haze [text-shadow:0_0_14px_rgb(226_188_106/.45)]"></b>
+            </div>
           </div>
 
           <div class="mt-[18px] grid grid-cols-2 gap-x-3.5 gap-y-4 text-sm leading-snug">

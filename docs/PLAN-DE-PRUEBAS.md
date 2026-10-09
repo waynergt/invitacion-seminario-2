@@ -17,7 +17,7 @@ la red neuronal, pase VIP, imagen PNG, calendario, mapas y generación de enlace
 
 Vercel también corre `npm test` antes de cada build: **si una prueba falla, no se publica**.
 
-## 3. Pruebas automáticas (55 casos)
+## 3. Pruebas automáticas (65 casos)
 
 ```bash
 npm test
@@ -26,7 +26,8 @@ npm test
 Incluyen, entre otras: códigos válidos e inválidos (incluido HTML en el enlace), cifrado de
 ida y vuelta, que otro código no descifre, que una alteración de un bit se detecte, que el
 IV no se repita, que el JSON no contenga nombres en claro, inyección de fórmulas en CSV,
-conversión de hora a UTC y CRLF del `.ics`, y validación de cada campo de `config.js`.
+conversión de hora a UTC y CRLF del `.ics`, validación de cada campo de `config.js`, y la mesa asignada
+(cifrada junto al nombre, opcional, y sin cambiar los códigos ya enviados).
 
 ### Calidad de las pruebas: prueba de mutación
 
@@ -68,11 +69,14 @@ en el código y se verificó que alguna prueba fallara:
 | CP-16 | Vista previa | Pegar el enlace en WhatsApp | Imagen con el logo y texto del evento |
 | CP-17 | Cabeceras | Revisar en securityheaders.com | CSP, HSTS, X-Frame-Options, etc. presentes |
 | CP-18 | Consola limpia | Abrir DevTools durante CP-01 a CP-12 | Sin errores de CSP ni de JavaScript |
+| CP-19 | Mesa asignada | Abrir el enlace de un invitado con mesa y completar el escaneo | El pase y el PNG muestran el recuadro MESA con su número |
+| CP-20 | Sin mesa | Igual que CP-19 con un invitado sin mesa | No aparece el recuadro MESA |
+| CP-21 | Cambio de mesa | Cambiar la mesa en el CSV, `npm run invitados`, publicar y reabrir el mismo enlace | Muestra la mesa nueva; el enlace no cambió |
 
 Dispositivos sugeridos: Android (Chrome), iPhone (Safari) y computadora (Chrome/Firefox).
 
 ## 5. Criterios de aceptación
 
 - 100 % de las pruebas automáticas aprobadas (CI en verde).
-- CP-01 a CP-18 aprobados en al menos un Android y un iPhone.
+- CP-01 a CP-21 aprobados en al menos un Android y un iPhone.
 - Sin errores en la consola del navegador.

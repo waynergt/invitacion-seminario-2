@@ -46,6 +46,21 @@ describe("Lista de invitados", () => {
     assert.ok(!/Byron|María|Flores|López/.test(json));
     for (const f of filas) assert.equal((await I.abrir(f.codigo, lista)).nombre, f.nombre);
   });
+  it("lee la columna mesa (opcional) y la cifra junto al nombre", async () => {
+    const filas = asignarCodigos(leerInvitados("nombre;mesa;codigo\nByron Flores;5;K7Q29XMBA4TR\nAna;;\n"));
+    assert.equal(filas[0].mesa, "5");
+    assert.equal(filas[1].mesa, null);
+    const lista = await construirLista(filas);
+    assert.deepEqual(await I.abrir("K7Q29XMBA4TR", lista), { id: await I.idDe("K7Q29XMBA4TR"), nombre: "Byron Flores", mesa: "5" });
+  });
+  it("agregar la columna mesa NO cambia los códigos que ya se enviaron", () => {
+    const antes = asignarCodigos(leerInvitados("nombre,codigo\nByron,K7Q29XMBA4TR\n"));
+    const despues = asignarCodigos(leerInvitados("nombre,mesa,codigo\nByron,5,K7Q29XMBA4TR\n"));
+    assert.equal(despues[0].codigo, antes[0].codigo);
+  });
+  it("informa la fila de una mesa demasiado larga", () => {
+    assert.throws(() => leerInvitados(`nombre,mesa\nAna,${"x".repeat(21)}\n`), /fila 2: la mesa/);
+  });
   it("saluda con el título y el primer nombre", () => {
     assert.equal(saludo("Ing. María José López"), "Ing. María");
     assert.equal(saludo("Brayan Corado"), "Brayan");

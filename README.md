@@ -10,7 +10,7 @@ Todo es estático: no hay servidor ni costos. Vercel solo sirve los archivos.
 
 ## Calidad y seguridad
 
-- **55 pruebas automáticas** (`npm test`): criptografía, CSV, calendario, configuración y revisiones de seguridad.
+- **65 pruebas automáticas** (`npm test`): criptografía, CSV, calendario, configuración y revisiones de seguridad.
   Vercel las corre antes de cada publicación y GitHub Actions en cada push: si una falla, no se publica.
 - **Prueba de mutación 8/8**: se metieron errores a propósito y las pruebas los detectaron todos.
 - **Seguridad**: lista de invitados cifrada con AES-256-GCM, CSP estricta, SRI, cabeceras HTTP de seguridad,
@@ -25,16 +25,18 @@ y la dirección del sitio. De ahí salen la invitación, Google Calendar, el arc
 
 ## Invitados (enlaces personales)
 
-1. Escribe los nombres en **`invitados/invitados.csv`** (una persona por fila, columna `nombre`).
+1. Escribe los nombres en **`invitados/invitados.csv`** (una persona por fila, columna `nombre`)
+   y, si quieres, su **`mesa`** (por ejemplo `5` o `VIP 2`; si la dejas vacía, el pase no muestra mesa).
    La primera vez, `npm run invitados` crea ese archivo a partir de `invitados.ejemplo.csv`.
 2. Corre **`npm run invitados`**. Esto:
    - le asigna a cada invitado un código único (se guarda en el mismo CSV; si vuelves a correrlo, los enlaces no cambian),
-   - genera **`static/invitados.json`**, la lista **cifrada con AES-256-GCM**: cada nombre solo se puede descifrar con el código de su enlace,
+   - genera **`static/invitados.json`**, la lista **cifrada con AES-256-GCM**: cada nombre y su mesa solo se pueden descifrar con el código de su enlace,
    - genera **`invitados/enlaces.csv`** con el enlace y un mensaje listo para copiar en WhatsApp.
 3. Sube los cambios (`static/invitados.json`) y envía a cada quien su enlace.
 
 - Un enlace sin código o con un código inventado muestra **"Acceso denegado"**: no se puede entrar con cualquier nombre.
 - Para quitarle el acceso a alguien, borra su fila del CSV y vuelve a correr `npm run invitados`.
+- Puedes **cambiar la mesa** de alguien cuando quieras: edita el CSV, corre `npm run invitados` y sube `static/invitados.json`. Su enlace sigue siendo el mismo.
 - La carpeta `invitados/` **no se sube a git** (el repo es público y ahí están los nombres y códigos en claro).
   Guárdala en un lugar seguro: si la pierdes, puedes generar enlaces nuevos, pero los anteriores dejarán de funcionar.
 

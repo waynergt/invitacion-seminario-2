@@ -3,7 +3,7 @@
  *
  *   npm run invitados
  *
- * 1. Lee invitados/invitados.csv  (columna "nombre"; la columna "codigo" se llena sola)
+ * 1. Lee invitados/invitados.csv  (columnas "nombre" y "mesa" (opcional); la columna "codigo" se llena sola)
  * 2. A quien no tenga código le crea uno aleatorio (criptográficamente seguro) y lo guarda
  *    en el mismo CSV, así los enlaces no cambian aunque vuelvas a correr el script.
  * 3. Escribe static/invitados.json: la lista CIFRADA (AES-256-GCM, ver static/invitacion-core.js).
@@ -18,7 +18,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import "../static/invitacion-core.js";
 import { leerConfig, RAIZ } from "./lib/config.mjs";
-import { campoCSV, filaCSV, parsearCSV } from "./lib/csv.mjs";
+import { filaCSV, parsearCSV } from "./lib/csv.mjs";
 
 const { Invitacion } = globalThis;
 const CARPETA = path.join(RAIZ, "invitados");
@@ -27,24 +27,24 @@ const EJEMPLO = path.join(CARPETA, "invitados.ejemplo.csv");
 const SALIDA_JSON = path.join(RAIZ, "static", "invitados.json");
 const SALIDA_ENLACES = path.join(CARPETA, "enlaces.csv");
 
-/** Convierte el CSV en filas {nombre, codigo} validadas. Lanza error con el número de fila si algo está mal. */
+/** Convierte el CSV en filas {nombre, mesa, codigo} validadas. Lanza error con el número de fila si algo está mal. */
 export function leerInvitados(texto) {
   const { cabecera, filas } = parsearCSV(texto);
-  const iNombre = cabecera.indexOf("nombre"), iCodigo = cabecera.indexOf("codigo");
+  const iNombre = cabecera.indexOf("nombre"), iCodigo = cabecera.indexOf("codigo"), iMesa = cabecera.indexOf("mesa");
   if (iNombre < 0) throw new Error('El CSV necesita una columna llamada "nombre"');
   const errores = [];
   const invitados = [];
   filas.forEach((c, i) => {
     const crudo = c[iNombre] ?? "";
     if (!crudo.trim()) return; // filas vacías se ignoran
-    try {
-      invitados.push({
-        nombre: Invitacion.validarNombre(crudo),
-        codigo: Invitacion.normalizarCodigo(iCodigo >= 0 ? c[iCodigo] : ""),
-      });
-    } catch {
+    let nombre, mesa;
+    try { nombre = Invitacion.validarNombre(crudo); } catch {
       errores.push(`fila ${i + 2}: nombre vacío o de más de ${Invitacion.MAX_NOMBRE} caracteres`);
     }
+    try { mesa = Invitacion.validarMesa(iMesa >= 0 ? c[iMesa] : null); } catch {
+      errores.push(`fila ${i + 2}: la mesa no puede tener más de ${Invitacion.MAX_MESA} caracteres`);
+    }
+    if (nombre) invitados.push({ nombre, mesa: mesa ?? null, codigo: Invitacion.normalizarCodigo(iCodigo >= 0 ? c[iCodigo] : "") });
   });
   if (errores.length) throw new Error("Revisa invitados.csv:\n  - " + errores.join("\n  - "));
   return invitados;
@@ -65,7 +65,7 @@ export function asignarCodigos(invitados, generar = Invitacion.generarCodigo) {
 /** Lista cifrada, ordenada por id para no revelar el orden original. */
 export async function construirLista(invitados) {
   const entradas = [];
-  for (const f of invitados) entradas.push([await Invitacion.idDe(f.codigo), await Invitacion.cifrar(f.codigo, f.nombre)]);
+  for (const f of invitados) entradas.push([await Invitacion.idDe(f.codigo), await Invitacion.cifrar(f.codigo, f.nombre, { mesa: f.mesa })]);
   entradas.sort(([a], [b]) => a.localeCompare(b));
   return { v: 1, e: Object.fromEntries(entradas) };
 }
@@ -89,17 +89,19 @@ async function main() {
   if (repetidos.length) console.warn(`⚠ Nombres repetidos (cada uno tendrá su propio enlace): ${[...new Set(repetidos)].join(", ")}`);
 
   // Guarda los códigos en el CSV para que los enlaces sean siempre los mismos
-  fs.writeFileSync(CSV, "﻿nombre,codigo\n" + invitados.map((f) => `${campoCSV(f.nombre)},${f.codigo}`).join("\n") + "\n");
+  fs.writeFileSync(CSV, "\uFEFFnombre,mesa,codigo\n" + invitados.map((f) => filaCSV([f.nombre, f.mesa ?? "", f.codigo])).join("\n") + "\n");
   fs.writeFileSync(SALIDA_JSON, JSON.stringify(await construirLista(invitados)) + "\n");
 
   const enlace = (codigo) => `${C.sitio}/#${codigo}`;
   const mensaje = (f) =>
     `Hola ${saludo(f.nombre)} 👋 Tienes una invitación cifrada al ${C.evento}. Solo tú puedes desbloquearla: ${enlace(f.codigo)}`;
-  fs.writeFileSync(SALIDA_ENLACES, "﻿nombre,enlace,mensaje\n" +
-    invitados.map((f) => filaCSV([f.nombre, enlace(f.codigo), mensaje(f)])).join("\n") + "\n");
+  fs.writeFileSync(SALIDA_ENLACES, "\uFEFFnombre,mesa,enlace,mensaje\n" +
+    invitados.map((f) => filaCSV([f.nombre, f.mesa ?? "", enlace(f.codigo), mensaje(f)])).join("\n") + "\n");
 
   console.log(`✓ ${invitados.length} invitados`);
-  for (const f of invitados) console.log(`  ${f.nombre.padEnd(32)} ${enlace(f.codigo)}`);
+  const sinMesa = invitados.filter((f) => !f.mesa).length;
+  for (const f of invitados) console.log(`  ${f.nombre.padEnd(32)} ${(f.mesa ? `Mesa ${f.mesa}` : "—").padEnd(10)} ${enlace(f.codigo)}`);
+  if (sinMesa) console.log(`\nℹ ${sinMesa} invitado(s) sin mesa: su pase no mostrará la mesa.`);
   console.log("\n→ static/invitados.json (cifrado, este sí se sube a git)");
   console.log("→ invitados/enlaces.csv  (enlaces y mensajes para enviar, NO se sube a git)");
 }

@@ -205,7 +205,7 @@ const MENSAJES_ERROR = {
 };
 
 /* ---------- Etapa 1: Intro ---------- */
-let guestName = "", invitadoId = "";
+let guestName = "", invitadoId = "", mesa = null;
 const destNombre = $("#dest-nombre");
 // El nombre se muestra "cifrado": mismos espacios y largo, pero con símbolos que cambian
 const cifrarVisual = (t) => [...t].map((ch) => (ch === " " ? " " : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
@@ -215,9 +215,10 @@ const cipherTimer = setInterval(() => {
 }, reduceMotion ? 1500 : 90);
 
 verificarInvitacion().then(
-  ({ id, nombre }) => {
-    guestName = nombre;
-    invitadoId = id;
+  (inv) => {
+    guestName = inv.nombre;
+    invitadoId = inv.id;
+    mesa = inv.mesa;
     const estado = $("#dest-estado");
     estado.textContent = "CLAVE VÁLIDA ✓";
     estado.classList.replace("text-dim/70", "text-oro-luz");
@@ -404,6 +405,10 @@ function renderPass(kind, conf) {
   wrap.classList.add("animate-reveal");
   scramble($("#p-title"), CONFIG.evento, 1200);
   scramble($("#p-guest"), guestName.toUpperCase(), 1600);
+  if (mesa) {
+    $("#p-mesa-box").classList.replace("hidden", "flex");
+    scramble($("#p-mesa"), mesa.toUpperCase(), 1900);
+  }
 }
 
 /* Cuenta regresiva al evento */
@@ -482,7 +487,7 @@ $("#btn-cal").addEventListener("click", () => {
     text: CONFIG.evento,
     dates: `${utc(INICIO)}/${utc(FIN)}`,
     ctz: CONFIG.zonaHoraria,
-    details: `Pase VIP: ${passId}\nOrganiza: ${CONFIG.organiza}\n${CONFIG.universidad} · ${CONFIG.sede}\n${location.origin}`,
+    details: `${mesa ? `Mesa: ${mesa}\n` : ""}Pase VIP: ${passId}\nOrganiza: ${CONFIG.organiza}\n${CONFIG.universidad} · ${CONFIG.sede}\n${location.origin}`,
     location: `${CONFIG.lugar}, ${CONFIG.direccion}`,
   });
 
@@ -615,13 +620,33 @@ async function crearImagenPase() {
     y += 80;
     y += bloque(CONFIG.evento, '900 56px "Orbitron"', C.haze, IW, 68);
 
-    // Invitado
+    // Invitado (+ mesa a la derecha, si tiene)
     y += 90;
+    const yInvitado = y;
+    const MW = 190; // ancho del recuadro de la mesa
     txt("INVITADO", X, y, '600 20px "JetBrains Mono"', C.dim, "5px");
     y += 60;
     const gradNombre = ctx.createLinearGradient(X, 0, X + IW * 0.8, 0);
     gradNombre.addColorStop(0, "#ffffff"); gradNombre.addColorStop(1, C.azulLuz);
-    y += bloque(guestName.toUpperCase(), '700 48px "Orbitron"', gradNombre, IW, 58, "2px");
+    y += bloque(guestName.toUpperCase(), '700 48px "Orbitron"', gradNombre, mesa ? IW - MW - 30 : IW, 58, "2px");
+    if (mesa) {
+      const mx = X + IW - MW, my = yInvitado - 30, mh = 150;
+      y = Math.max(y, my + mh - 40);
+      if (dibujar) {
+        ctx.save();
+        ctx.shadowColor = "rgba(226,188,106,.35)"; ctx.shadowBlur = 30;
+        ctx.fillStyle = "rgba(177,135,59,.12)";
+        ctx.beginPath(); ctx.roundRect(mx, my, MW, mh, 26); ctx.fill();
+        ctx.restore();
+        ctx.strokeStyle = "rgba(226,188,106,.6)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(mx, my, MW, mh, 26); ctx.stroke();
+      }
+      txt("MESA", mx + MW / 2, my + 42, '600 20px "JetBrains Mono"', C.oroLuz, "6px", "center");
+      // Ajusta el tamaño para que la mesa quepa en el recuadro
+      let tam = 64;
+      do { ctx.font = `900 ${tam}px "Orbitron"`; ctx.letterSpacing = "0px"; } while (ctx.measureText(mesa.toUpperCase()).width > MW - 30 && (tam -= 4) > 20);
+      txt(mesa.toUpperCase(), mx + MW / 2, my + 112, `900 ${tam}px "Orbitron"`, C.haze, "0px", "center");
+    }
 
     // Datos en dos columnas
     const colW = IW / 2 - 20;

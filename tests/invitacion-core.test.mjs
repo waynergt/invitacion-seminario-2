@@ -82,6 +82,41 @@ describe("Cifrado AES-256-GCM", () => {
   });
 });
 
+describe("Mesa asignada", () => {
+  it("cifra y descifra nombre y mesa juntos", async () => {
+    const e = await I.cifrar(CODIGO, "Ing. Byron Flores", { mesa: "5" });
+    assert.deepEqual(await I.descifrarDatos(CODIGO, e), { nombre: "Ing. Byron Flores", mesa: "5" });
+  });
+  it("la mesa es opcional: sin mesa devuelve null", async () => {
+    const e = await I.cifrar(CODIGO, "Ana");
+    assert.deepEqual(await I.descifrarDatos(CODIGO, e), { nombre: "Ana", mesa: null });
+    assert.equal((await I.descifrarDatos(CODIGO, await I.cifrar(CODIGO, "Ana", { mesa: "  " }))).mesa, null);
+  });
+  it("acepta números y textos cortos (\"VIP 2\")", async () => {
+    assert.equal(I.validarMesa(7), "7");
+    assert.equal(I.validarMesa("  VIP   2 "), "VIP 2");
+  });
+  it("rechaza mesas de más de 20 caracteres o de tipo inválido", () => {
+    assert.throws(() => I.validarMesa("x".repeat(21)), { tipo: "DATOS_ALTERADOS" });
+    assert.throws(() => I.validarMesa({}), { tipo: "DATOS_ALTERADOS" });
+  });
+  it("la mesa no aparece en claro en el archivo cifrado", async () => {
+    const e = await I.cifrar(CODIGO, "Ana", { mesa: "MESA-SECRETA-9" });
+    assert.ok(!JSON.stringify(e).includes("SECRETA"));
+  });
+  it("cambiar la mesa cambia el IV (no se reutiliza IV con otro contenido)", async () => {
+    const a = await I.cifrar(CODIGO, "Ana", { mesa: "1" }), b = await I.cifrar(CODIGO, "Ana", { mesa: "2" });
+    assert.notEqual(a.iv, b.iv);
+  });
+  it("abrir() devuelve id, nombre y mesa", async () => {
+    const lista = { v: 1, e: { [await I.idDe(CODIGO)]: await I.cifrar(CODIGO, "Ana", { mesa: "3" }) } };
+    const r = await I.abrir(CODIGO, lista);
+    assert.equal(r.nombre, "Ana");
+    assert.equal(r.mesa, "3");
+    assert.match(r.id, /^[0-9a-f]{32}$/);
+  });
+});
+
 describe("Validación de nombres", () => {
   it("limpia espacios y caracteres de control", () => {
     assert.equal(I.validarNombre("  Ana \t  María\u0000 "), "Ana María");

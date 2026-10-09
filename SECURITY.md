@@ -8,7 +8,7 @@ ni cuentas de usuario.
 
 | Activo | Por qué importa |
 |---|---|
-| Lista de invitados (nombres) | Datos personales: no deben poder leerse desde el sitio ni desde el repositorio público. |
+| Lista de invitados (nombres y mesas) | Datos personales: no deben poder leerse desde el sitio ni desde el repositorio público. |
 | Códigos de invitación | Quien tiene el código puede abrir esa invitación. |
 | Imágenes de la cámara | Privacidad del invitado. |
 | Integridad del sitio | Que nadie inyecte código ni modifique lo que ve el invitado. |
@@ -19,7 +19,7 @@ ni cuentas de usuario.
 |---|---|---|---|
 | **Suplantación** | Entrar escribiendo cualquier nombre. | Ya no se escribe el nombre: sale de la lista cifrada y solo se descifra con un código válido. | Quien recibe un enlace reenviado ve esa invitación (el enlace funciona como una llave). |
 | **Adivinar códigos** | Probar códigos al azar. | 12 caracteres de un alfabeto de 30 → 30¹² ≈ 5·10¹⁷ combinaciones (~59 bits) generadas con `crypto.getRandomValues`. Ni con miles de invitados es viable. | Bajo. |
-| **Divulgación de información** | Leer los nombres desde `invitados.json` o desde GitHub. | Cada nombre va cifrado con **AES-256-GCM**; la llave sale del código (SHA-256) y el código **nunca** se sube: está solo en el `#fragmento` del enlace (los navegadores no lo envían al servidor) y en `invitados/`, ignorada por git. Hay una prueba que falla si se versiona algo de `invitados/`. | Se puede inferir el **largo** del nombre y el número de invitados. |
+| **Divulgación de información** | Leer los nombres o mesas desde `invitados.json` o desde GitHub. | Cada nombre (con su mesa) va cifrado con **AES-256-GCM**; la llave sale del código (SHA-256) y el código **nunca** se sube: está solo en el `#fragmento` del enlace (los navegadores no lo envían al servidor) y en `invitados/`, ignorada por git. Hay una prueba que falla si se versiona algo de `invitados/`. | Se puede inferir el **largo** del nombre y el número de invitados. |
 | **Manipulación** | Editar `invitados.json` para que aparezca otro nombre. | GCM autentica el cifrado: si cambia un solo bit, el descifrado falla. Se valida el formato de la lista y del nombre (texto, 1–80 caracteres, sin caracteres de control). | Bajo. |
 | **XSS / inyección de código** | Un nombre como `<img onerror=…>` o código en el enlace. | Todo dato variable se inserta con `textContent` (nunca `innerHTML`); el código del enlace se valida contra el alfabeto; **CSP** sin `unsafe-inline` ni `unsafe-eval`. Hay pruebas que lo verifican. | Bajo. |
 | **Inyección de fórmulas en CSV** | Un nombre `=HYPERLINK(...)` que Excel ejecuta al abrir `enlaces.csv`. | Los valores que empiezan con `= + - @` se escriben con `'` delante (recomendación OWASP). | Bajo. |

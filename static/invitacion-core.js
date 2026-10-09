@@ -11,10 +11,11 @@
  *   código (12 caracteres, ~59 bits de entropía, va en el #fragmento del enlace)
  *     ├─ id    = SHA-256("umg-invitado-id:"  + código)  → primeros 128 bits en hex (para buscar la entrada)
  *     └─ llave = SHA-256("umg-invitado-key:" + código)  → llave AES-256-GCM
- *   iv = SHA-256("umg-invitado-iv:" + código + ":" + nombre) → primeros 96 bits
- *        (determinista: si el nombre no cambia, el archivo cifrado tampoco; si cambia, el iv cambia,
+ *   datos = JSON {"n": nombre, "m": mesa (opcional)}
+ *   iv = SHA-256("umg-invitado-iv:" + código + ":" + datos) → primeros 96 bits
+ *        (determinista: si los datos no cambian, el archivo cifrado tampoco; si cambian, el iv cambia,
  *         así nunca se repite iv con texto distinto bajo la misma llave)
- *   texto cifrado = AES-256-GCM(llave, iv, JSON {"n": nombre})  — GCM autentica: si alguien altera
+ *   texto cifrado = AES-256-GCM(llave, iv, datos)  — GCM autentica: si alguien altera
  *        el archivo, el descifrado falla en lugar de mostrar un nombre falso.
  *
  * Al no usar import/export, funciona como <script> clásico y como módulo de Node (18+ tiene WebCrypto).
@@ -25,6 +26,7 @@
   const ALFABETO = "23456789ABCDEFGHJKMNPQRSTVWXYZ"; // sin 0/O, 1/I/L ni U
   const LARGO = 12;
   const MAX_NOMBRE = 80;
+  const MAX_MESA = 20;
   const subtle = () => {
     if (!raiz.crypto?.subtle) throw new ErrorInvitacion("SIN_CRYPTO", "Se requiere HTTPS para descifrar la invitación");
     return raiz.crypto.subtle;
@@ -75,14 +77,29 @@
     return limpio;
   }
 
-  async function cifrar(codigo, nombre) {
-    nombre = validarNombre(nombre);
-    const iv = (await sha256(`umg-invitado-iv:${codigo}:${nombre}`)).slice(0, 12);
-    const ct = await subtle().encrypt({ name: "AES-GCM", iv }, await llaveDe(codigo, "encrypt"), utf8(JSON.stringify({ n: nombre })));
+  /** Mesa opcional: vacía → null; si viene, texto de 1 a 20 caracteres (p. ej. "5", "VIP 2"). */
+  function validarMesa(mesa) {
+    if (mesa == null) return null;
+    if (typeof mesa !== "string" && typeof mesa !== "number") throw new ErrorInvitacion("DATOS_ALTERADOS", "Mesa inválida");
+    const limpia = String(mesa).replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim();
+    if (!limpia) return null;
+    if (limpia.length > MAX_MESA) throw new ErrorInvitacion("DATOS_ALTERADOS", "Mesa demasiado larga");
+    return limpia;
+  }
+
+  /** Cifra los datos del invitado. `extra.mesa` es opcional. */
+  async function cifrar(codigo, nombre, extra = {}) {
+    const datos = { n: validarNombre(nombre) };
+    const mesa = validarMesa(extra.mesa);
+    if (mesa) datos.m = mesa;
+    const plano = JSON.stringify(datos);
+    const iv = (await sha256(`umg-invitado-iv:${codigo}:${plano}`)).slice(0, 12);
+    const ct = await subtle().encrypt({ name: "AES-GCM", iv }, await llaveDe(codigo, "encrypt"), utf8(plano));
     return { iv: aB64url(iv), ct: aB64url(new Uint8Array(ct)) };
   }
 
-  async function descifrar(codigo, entrada) {
+  /** Descifra y valida los datos: { nombre, mesa } (mesa es null si no tiene). */
+  async function descifrarDatos(codigo, entrada) {
     let plano;
     try {
       plano = await subtle().decrypt({ name: "AES-GCM", iv: desdeB64url(entrada.iv) }, await llaveDe(codigo, "decrypt"), desdeB64url(entrada.ct));
@@ -94,8 +111,11 @@
     try { datos = JSON.parse(new TextDecoder().decode(plano)); } catch {
       throw new ErrorInvitacion("DATOS_ALTERADOS", "Contenido descifrado inválido");
     }
-    return validarNombre(datos?.n);
+    return { nombre: validarNombre(datos?.n), mesa: validarMesa(datos?.m) };
   }
+
+  /** Solo el nombre (compatibilidad). */
+  const descifrar = async (codigo, entrada) => (await descifrarDatos(codigo, entrada)).nombre;
 
   /** Revisa que invitados.json tenga la forma esperada antes de usarlo. */
   function validarLista(lista) {
@@ -111,7 +131,7 @@
     validarLista(lista);
     const id = await idDe(codigo);
     if (!Object.prototype.hasOwnProperty.call(lista.e, id)) throw new ErrorInvitacion("NO_REGISTRADO", "Código no registrado");
-    return { id, nombre: await descifrar(codigo, lista.e[id]) };
+    return { id, ...(await descifrarDatos(codigo, lista.e[id])) };
   }
 
   /** Genera un código aleatorio criptográficamente seguro, sin sesgo de módulo. */
@@ -127,8 +147,8 @@
   }
 
   raiz.Invitacion = Object.freeze({
-    ALFABETO, LARGO, MAX_NOMBRE, ErrorInvitacion,
-    normalizarCodigo, codigoValido, codigoDesdeHash, validarNombre,
-    idDe, cifrar, descifrar, validarLista, abrir, generarCodigo, aB64url, desdeB64url,
+    ALFABETO, LARGO, MAX_NOMBRE, MAX_MESA, ErrorInvitacion,
+    normalizarCodigo, codigoValido, codigoDesdeHash, validarNombre, validarMesa,
+    idDe, cifrar, descifrar, descifrarDatos, validarLista, abrir, generarCodigo, aB64url, desdeB64url,
   });
 })(globalThis);
