@@ -10,7 +10,7 @@ Todo es estático: no hay servidor ni costos. Vercel solo sirve los archivos.
 
 ## Calidad y seguridad
 
-- **65 pruebas automáticas** (`npm test`): criptografía, CSV, calendario, configuración y revisiones de seguridad.
+- **67 pruebas automáticas** (`npm test`): criptografía, CSV, calendario, configuración y revisiones de seguridad.
   Vercel las corre antes de cada publicación y GitHub Actions en cada push: si una falla, no se publica.
 - **Prueba de mutación 8/8**: se metieron errores a propósito y las pruebas los detectaron todos.
 - **Seguridad**: lista de invitados cifrada con AES-256-GCM, CSP estricta, SRI, cabeceras HTTP de seguridad,
